@@ -124,6 +124,7 @@ Whenever ProofSlice is executed, it stores the sliced C code into ```tmp.c```. T
 ```console
 gcc tmp.c && ./a.out
 ```
+Since the slices does not provide output, if nothing happens that means that everything works! If there is an error, the output will complain about a failed assertion.
 
 ## Bugs
 Please report any bugs or contact me if you have any questions!
