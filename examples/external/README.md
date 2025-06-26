@@ -1,0 +1,2 @@
+These examples are a subset of the following data set:
+Bernhard Beckert, Thorsten Bormer, Stephan Gocht, Mihai Herda, Daniel Lentzsch, & Mattias Ulbrich. (2019). Evaluation Data of SemSlice (Version 1) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.3334571
