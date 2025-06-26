@@ -119,5 +119,14 @@ FUN main():
 ╰───────────────────────────────────────╯
 ```
 
+## Validation
+Whenever ProofSlice is executed, it stores the sliced C code into ```tmp.c```. To validate the slice, please compile and execute the slice, for example with ```gcc```:
+```console
+gcc tmp.c && ./a.out
+```
+
+## Bugs
+Please report any bugs or contact me if you have any questions!
+
 
 
