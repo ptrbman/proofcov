@@ -49,7 +49,11 @@ def unroll(lines, n):
             for x in range(start, min(start + n, end)):
                 for x2, body_line in enumerate(loop_body):
                     line_map[len(unrolled_lines)] = i + x2 + 1
-                    unrolled_lines.append(body_line.replace(var_name, str(x)))
+                    
+                    # Make sure only to replace variable occurrences, not substrings
+                    pattern = r'\b' + re.escape(var_name) + r'\b'
+                    new_line = re.sub(pattern, str(x), body_line)
+                    unrolled_lines.append(new_line)
                     # Update line map
             i = i + loop_lines
         elif skip_closing_brace and line.strip() == "}":
