@@ -44,7 +44,25 @@ if not os.path.exists(dirpath + '/' + filename):
     print(f"[red]Error: File '{filename}' does not exist in directory '{dirpath}'[/red]")
     sys.exit(1)
 
+
+
+
 lines = open(dirpath + '/' + filename, 'r').readlines()
+
+def replacer(match):
+    s = match.group(0)
+    if s.startswith('/'):
+        return " " # note: a space and not an empty string
+    else:
+        return s
+pattern = re.compile(
+    r'//.*?$|/\*.*?\*/|\'(?:\\.|[^\\\'])*\'|"(?:\\.|[^\\"])*"',
+    re.DOTALL | re.MULTILINE
+)
+
+lines = re.sub(pattern, replacer, '\n'.join(lines))
+# Remove empty lines
+lines = [line + '\n' for line in lines.split('\n') if line.strip() != '']
 print(Panel.fit(''.join(lines), title="C code after unrolling loops"))
 
 
