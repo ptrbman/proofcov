@@ -1,5 +1,9 @@
 import re
 
+
+# Known limitations:
+# - Do not assign to loop variable inside the loop
+
 def unroll(lines, n):
     """
     Unrolls for-loops in a C program n times.
