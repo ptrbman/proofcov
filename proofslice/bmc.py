@@ -133,6 +133,9 @@ class BMC():
                 if verbose:
                     print("\tAssume:", l, " => ", asrt)
                 constraints += asrt
+            elif isinstance(l, Skip):
+                if verbose:
+                    print("\tIgnoring Skip")
             else:
                raise TypeError(f"Unsupported Line: {l}")
 

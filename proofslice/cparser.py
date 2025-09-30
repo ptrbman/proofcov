@@ -250,6 +250,7 @@ class CParser():
         elif isinstance(s, c_ast.For):
             raise NotImplementedError("For loops are not supported yet, please unroll them manually")
         else:
+            return [Skip()]
             raise TypeError(f"Unsupported statement: {s}")
 
     def handle_fundef(node, ssa):

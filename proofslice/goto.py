@@ -198,6 +198,16 @@ class Line():
     def __init__(self, src_line=None):
         None
 
+class Skip(Line):
+    def __init__(self):
+        None
+        
+    def to_bmc(self):
+        return []
+    
+    def __str__(self):
+        return "SKIP"
+    
 class Assume(Line):
     def __init__(self, expr, src_line):
         self.expr = expr
