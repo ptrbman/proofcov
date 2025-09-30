@@ -132,6 +132,9 @@ class CParser():
 
             if e.op == '==':
                 return Eq(lhs, rhs)
+            elif e.op == '!=': 
+                # Consider if this should be Not(Eq(lhs, rhs))
+                return Ne(lhs, rhs)
             elif e.op == '>':
                 return Gt(lhs, rhs)
             elif e.op == '>=':
@@ -202,7 +205,7 @@ class CParser():
         if isinstance(s, c_ast.FuncCall):
             return [CParser.handle_call(s, ssa)]
         elif isinstance(s, c_ast.Return):
-            return [Return(CParser.handle_expr(s.expr, ssa))]
+            return [Return(CParser.handle_expr(s.expr, ssa), s.coord.line)]
         elif isinstance(s, c_ast.If):
             cond = CParser.handle_expr(s.cond, ssa, True)
             ssa_before = ssa.copy() 
@@ -239,7 +242,6 @@ class CParser():
         elif isinstance(s, c_ast.Assignment):
             op = s.op
             assert(op == '=')
-
             rhs = CParser.handle_expr(s.rvalue, ssa)
             assert(isinstance(s.lvalue, c_ast.ID))
             lhs = Var(ssa.inc(s.lvalue.name))
