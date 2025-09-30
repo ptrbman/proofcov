@@ -66,5 +66,12 @@ def unroll(lines, n):
             line_map[len(unrolled_lines)] = i #  Map the original line number
             unrolled_lines.append(line)
         i += 1
-    
+   
+    for l in unrolled_lines:
+        # If l starts with for, we have not handled this correctly
+        if l.lstrip().startswith("for "):
+            print("Warning: Found unhandled for-loop in unrolled code, please check manually:")
+            print(l)
+            raise Exception("Unhandled for-loop found in unrolled code")
+        
     return unrolled_lines, line_map
