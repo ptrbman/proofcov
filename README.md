@@ -1,6 +1,6 @@
 # ProofSlice
 
-A (very) simple prototype for proof-based slicing. To use, the following prerequisites are necessary (listed version has been tested):
+A (very) simple prototype for proof-based slicing. It only works for a narrow subset of C mostly works for the cases in the ```examples``` folder. To use, the following prerequisites are necessary (listed version has been tested):
 - Python 3.10.12
 - z3 4.8.12 (SMT solver)
 
