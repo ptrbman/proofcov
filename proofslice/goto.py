@@ -38,6 +38,18 @@ class Eq(BinOp):
     def __str__(self):
         return str(self.lhs) + " == " + str(self.rhs)
 
+class Ne(BinOp):
+    op = '!='
+    def to_ssa(self, uses):
+        return Ne(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
+
+    def to_bmc(self):
+        return "(not (= " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + "))"
+
+    def __str__(self):
+        return str(self.lhs) + " != " + str(self.rhs)
+
+
 
 class Gt(BinOp):
     op = '>'
