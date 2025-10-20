@@ -63,11 +63,15 @@ pattern = re.compile(
 lines = re.sub(pattern, replacer, '\n'.join(lines))
 # Remove empty lines
 lines = [line + '\n' for line in lines.split('\n') if line.strip() != '']
-print(Panel.fit(''.join(lines), title="C code after unrolling loops"))
 
+lines_with_numbers = [f"{i+1}: {line}" for i, line in enumerate(lines)]
+print(Panel.fit(''.join(lines_with_numbers), title="C code"))
 
 UNROLLINGS = 10
 unrolled_lines, line_map = unroll(lines, UNROLLINGS)
+
+unrolled_lines_with_numbers = [f"{i+1}: {line}" for i, line in enumerate(unrolled_lines)]
+print(Panel.fit(''.join(unrolled_lines_with_numbers), title="C code after unrolling loops"))
 
 # 2. Convert file to goto code
 ast = CParser.parse_lines(unrolled_lines)
@@ -137,7 +141,7 @@ output_code = ''.join(lines)
 console = Console()
 
 lines_with_numbers = [f"{i+1}: {line}" for i, line in enumerate(output_code.splitlines())]
-print(Panel.fit('\n'.join(lines_with_numbers), title="C code with marked lines"))
+print(Panel('\n'.join(lines_with_numbers), width=80, highlight=True, title="C code with marked lines"))
 # 7. Output original code with each unmarked line removed (i.e., commented)
 
 fout = open('tmp.c', 'w')

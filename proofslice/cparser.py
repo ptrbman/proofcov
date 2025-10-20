@@ -4,64 +4,48 @@ from rich.panel import Panel
 from goto import *
 
 
-class SSA():
-    def __init__(self, pointer=None):
-        self.uses = {} 
-        self.suffix = ''
-        self.suffix_used = {} # Contains all symbols which have increased the suffix
-        self.pointer=pointer #We update the SSA pointed to by pointer
-        self.extra_declares = [] # This is updated through pointer if copied SSA needs to propagate declares
+class SSANames():
+    def __init__(self):
+        self.names = set()
+        self.current = {} 
+        self.next = {}
+        self.writes = set()
 
-    def new(self, name):
-        assert(not name in self.uses)
-        self.uses[name] = 0
-        if self.pointer:
-            print("Trying to create a new name on copied SSA...")
-            assert(False)
+    def add(self, name):
+        assert(not name in self.names)
+        self.names.add(name)
+        self.current[name] = 0
+        self.next[name] = 1
         return self.use(name)
 
+    def reset_writes(self):
+        self.writes.clear()
+        
     def use(self, name):
-        assert(name in self.uses)
-        if name in self.suffix_used:
-            return name + '.' + self.suffix + '.' + str(self.uses[name])
-        else:
-            return name + '.' + str(self.uses[name])
+        assert(name in self.names)
+        
+        return name + '.' + str(self.current[name])
 
     def inc(self, name):
-        assert(name in self.uses)
-        self.uses[name] += 1
-
-        if self.pointer:
-            self.pointer.extra_declares.append(name + '.' + self.suffix + '.' + str(self.uses[name]))
-            self.pointer.inc(name)
-
-        if not self.suffix == '':
-            self.suffix_used[name] = True
+        assert(name in self.names)
+        self.current[name] = self.next[name]
+        self.next[name] += 1
+        self.writes.add(name)
+         
         return self.use(name)
 
-    def copy(self):
-        new_ssa = SSA(self)
-        new_ssa.uses = self.uses.copy()
-        new_ssa.suffix = self.suffix
-        new_ssa.suffix_used = self.suffix_used.copy()
-        new_ssa.extra_declares = self.extra_declares.copy()
-        return new_ssa
+    def copy_current(self):
+        return self.current.copy()
 
-    # Creates a copy
-    def activate_suffix(self, suffix):
-        new_ssa = SSA(self)
-        new_ssa.uses = self.uses.copy()
-        new_ssa.suffix = suffix
-        new_ssa.suffix_inc = False
-        return new_ssa
+    def count(self, name):
+        assert(name in self.names)
+        return self.next[name]
 
-
-    # TODO: can not manage variables with .?
     def extract_name(name):
         return name.split(".")[0]
 
     def __str__(self):
-        return '\n'.join(k + ": " + str(self.uses[k]) for k in self.uses.keys())
+        return '\n'.join(k + ": " + str(self.current[k]) for k in self.names)
 
     
 class CParser():
@@ -82,47 +66,35 @@ class CParser():
         return l
 
 
-    def handle_if(src_line, cond, iftrue, iffalse, ssa, ssa_before):
+    def handle_if(src_line, cond, iftrue, iffalse, ssa, ssa_current_before, ssa_false, ssa_true, false_writes, true_writes):
         btrue = CParser.gen_label("iftrue")
         bafter = CParser.gen_label("ifafter")
         lines = []
         lines.append(JumpIf(cond, btrue, src_line))
 
-        # Extract assignments
-        iffalse_last_values = {}
         for l in iffalse:
-            if l.assignment():
-                lhs = l.assignment()
-                iffalse_last_values[SSA.extract_name(lhs.name)] = lhs
             lines.append(l)
         lines.append(Jump(bafter, src_line))
 
-        # Here we need to reset SSA, can we reset it alltogether?, only last val
-        # Can we name the different branches?
-        iftrue_last_values = {}
         lines.append(Label(btrue, src_line))
         for l in iftrue:
-            if l.assignment():
-                lhs = l.assignment()
-                iftrue_last_values[SSA.extract_name(lhs.name)] = lhs
-
             lines.append(l)
-
         lines.append(Label(bafter, src_line))
 
-        changed_values = set(iffalse_last_values.keys()).union(iftrue_last_values.keys())
-        for v in changed_values:
-            iff, ift = iffalse_last_values.get(v), iftrue_last_values.get(v)
-            # TODO: If a value is only changed in one branch, it must be PHI/ed with its original value
-            if iff and ift:
-                lines.append(Phi(ssa.inc(v), cond, ift, iff, src_line))
-            elif iff:
-                prev = ssa_before.use(v)
-                lines.append(Phi(ssa.inc(v), cond, prev, iff, src_line))
-            elif ift:
-                prev = ssa_before.use(v)
-                lines.append(Phi(ssa.inc(v), cond, ift, prev, src_line))
-
+        # We only need PHI nodes for variables which have
+        # been declared before the if, i.e., the ssa current before:
+        for v in ssa_current_before.keys():
+            if not v in false_writes and not v in true_writes:
+                continue
+           
+            iff, ift = v + '.' + str(ssa_current_before[v]), v + '.' + str(ssa_current_before[v])
+            if v in false_writes:
+                iff = v + '.' + str(ssa_false[v]) # TODO: this should be handled by SSANames
+                
+            if v in true_writes:
+                ift = v + '.' + str(ssa_true[v]) # TODO: this should be handled by SSANames
+                
+            lines.append(Phi(ssa.inc(v), cond, ift, iff, src_line))
         return lines
 
     def handle_expr(e, ssa, cover=False):
@@ -208,12 +180,30 @@ class CParser():
             return [Return(CParser.handle_expr(s.expr, ssa), s.coord.line)]
         elif isinstance(s, c_ast.If):
             cond = CParser.handle_expr(s.cond, ssa, True)
-            ssa_before = ssa.copy() 
-            ssa_false = ssa.activate_suffix('F')
-            ssa_true = ssa.activate_suffix('T')
-            iffalse = CParser.handle_stmt(s.iffalse, ssa_false)
-            iftrue = CParser.handle_stmt(s.iftrue, ssa_true)
-            return CParser.handle_if(s.coord.line, cond, iftrue, iffalse, ssa, ssa_before)
+           
+            # We save the current SSA using state before branching
+            ssa_current_before = ssa.copy_current()
+            ssa.reset_writes()
+            iffalse = CParser.handle_stmt(s.iffalse, ssa)
+            false_writes = ssa.writes.copy()
+             
+            # Now ssa might have increased both current and next
+            # we need to restore uses before handling iftrue
+            # We must save the current to use it for PHI nodes
+           
+            ssa_false_current = ssa.copy_current() 
+            
+            ssa.current = ssa_current_before.copy()
+            ssa.reset_writes()
+            iftrue = CParser.handle_stmt(s.iftrue, ssa)
+            true_writes = ssa.writes.copy()
+            ssa_true_current = ssa.copy_current()
+        
+            ssa.current = ssa_current_before.copy()
+           
+            result = CParser.handle_if(s.coord.line, cond, iftrue, iffalse, ssa, ssa_current_before, ssa_false_current, ssa_true_current, false_writes, true_writes)
+           
+            return result
         elif isinstance(s, c_ast.Compound):
             if not s.block_items:
                 return []
@@ -236,9 +226,9 @@ class CParser():
                     return [Declaration(ssa.new(name), None, s.coord.line)]
                 else:
                     if s.init:
-                        return [Declaration(ssa.new(name), s.init.value, s.coord.line)]
+                        return [Declaration(ssa.add(name), s.init.value, s.coord.line)]
                     else:
-                        return [Declaration(ssa.new(name), None, s.coord.line)]
+                        return [Declaration(ssa.add(name), None, s.coord.line)]
         elif isinstance(s, c_ast.Assignment):
             op = s.op
             assert(op == '=')
@@ -287,7 +277,7 @@ class CParser():
         gotos = []
         ssas = []
         for a in ast:
-            ssa = SSA()
+            ssa = SSANames()
             n = CParser.handle_node(a, ssa)
             if n:
                 gotos.append(n)

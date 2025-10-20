@@ -83,13 +83,10 @@ class BMC():
         lines = decls + goto.body
 
         header = []
-        for k in ssa.uses.keys():
-            for i in range(ssa.uses[k] + 1):
+        for k in ssa.names:
+            for i in range(ssa.count(k) + 1):
                 n = k + "." + str(i)
                 header.append("(declare-fun " + n + " () (Int))")
-        for extra in ssa.extra_declares:
-            header.append("(declare-fun " + extra + " () (Int))")
-
 
         constraints = []
         annotated_nodes = []
