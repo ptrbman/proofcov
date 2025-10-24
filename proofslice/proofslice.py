@@ -30,7 +30,7 @@ def split_path(file_path):
     return dirpath, filename
 
 if len(sys.argv) != 2:
-    print("Usage: python proofcov.py <path_to_file>")
+    print("Usage: prooflsice <path_to_file>")
     sys.exit(1)
 
 # 1. Take a C file and parse it (currently we do nothing, but could have preprocessing here)
