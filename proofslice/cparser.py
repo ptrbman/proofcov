@@ -111,6 +111,8 @@ class CParser():
                 return Gt(lhs, rhs)
             elif e.op == '>=':
                 return Ge(lhs, rhs)
+            elif e.op == '<':
+                return Lt(lhs, rhs)
             elif e.op == '<=':
                 return Le(lhs, rhs)
             elif e.op == '+':
