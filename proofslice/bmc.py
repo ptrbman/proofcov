@@ -65,7 +65,7 @@ class BMC():
     # So if we handle l, we also want to be able to display the coverage
     def handle_phi(l):
        # TODO: we assume one expr per line ...
-       count = 0
+    #    count = 0
     #    node, constraints, count, annotated = BMC.create_subexprs(l.cond, l.src_line)
     #    print("Handling phi:", l, "=>", node, constraints)
     #    print(node)
@@ -74,7 +74,13 @@ class BMC():
     #    l.cond = node
     #    BMC.print_node(annotated)
     #    return constraints + ["(assert " + l.to_bmc()[0] +")", "(assert " + l.to_bmc()[1] +")"], (annotated, l.src_line)
-       return ["(assert " + l.to_bmc()[0] +")", "(assert " + l.to_bmc()[1] +")"], ([], l.src_line)
+    
+        # We add an option of allowing to bypass phinodes and remaining agonstic to which branch was taken
+        # This is useful if the phi is only used to select between two identical values (e.g., both branches assign b = 5)
+        
+        agnostic_line = [f'(assert (! {l.agnostic_bmc()[0]} :named phi.agnostic.{l.src_line}.{l.var})) ; agnostic line ' + str(l.src_line)]
+        if_line = [f'(assert (! {l.to_bmc()[0]} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}', f'(assert (! {l.to_bmc()[1]} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}']
+        return agnostic_line + if_line, ([], l.src_line)
 
     def gen_formula(goto, ssa):
         assert(isinstance(goto, Function))
@@ -138,7 +144,6 @@ class BMC():
 
         footer = []
         footer.append("(check-sat)")
-
         all = []
 
         for h in header:
@@ -190,6 +195,20 @@ class BMC():
         lines = set()
         for m in r:
             lines.add(int(m[0]))
+
+        p = r"phi\.(\w*)\.(\d+)"
+        r = re.findall(p, stdout)
+        for m in r:
+            if m[0] == "agnostic":
+                ()
+            elif m[0] == "if":
+                lines.add(int(m[1]))
+            elif m[0] == "else":
+                lines.add(int(m[1]))
+            else:
+                print("Unknown phi core part:", m)
+                assert(False)
+
 
         p = r"name_subexpr_(\d+)_(\d+)"
         r = re.findall(p, stdout)

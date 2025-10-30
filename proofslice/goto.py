@@ -332,6 +332,9 @@ class Phi(Line):
         b = "(or " + self.cond.to_bmc() + " " + iff + ")"
         return [a, b]
 
+    def agnostic_bmc(self):
+        return ["(or (= " + self.var + " " + str(self.iftrue) + ") (= " + self.var + " " + str(self.iffalse) + "))"]  
+
     def __str__(self):
         return "PHI(" + str(self.var) + ") := " + str(self.cond) + " ? " + str(self.iftrue) + " : " + str(self.iffalse)
     

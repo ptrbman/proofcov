@@ -131,8 +131,9 @@ for i in range(len(lines)):
     elif 'if' in lines[i]:
         # If unmarked, replace it by true to ensure first branch is taken
         # Uncomment this to force first branch to be taken (if marked it means it doesn't matter)
-        # lines[i] = 'if (1 == 0) {\n'
-        ()
+        # Extract whitespace in the beginning of line
+        ws = re.match(r'\s*', lines[i]).group(0)
+        lines[i] = f'{ws}if (1 == 0) {{ // {lines[i][len(ws):]}'
     else:
         lines[i] = "// " + lines[i]  # Comment out unmarked lines
 
