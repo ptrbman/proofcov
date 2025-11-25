@@ -6,6 +6,6 @@ void main() {
     qty = 2;
     price = 0;
     cost = qty * price;
-
+ 
     assert(cost == 0);
 }
