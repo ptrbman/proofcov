@@ -11,7 +11,7 @@ class BMC():
         return ["(assert (! " + b + " :named line" + str(line.src_line) + "." + str(i) + ")) ; line " + str(line.src_line) for i, b in enumerate(line.to_bmc())]
 
 
-    # This is used to track the usage of subexpressions in if-statements (e.g., in if (a && b) we can slice away only a or b).
+    # This is used to track the usage of subexpressions in if-statements (e.g., in if (a && b) we can cover only a or b).
     # Returns name, constraints, number of created exprs, annotated AST - name of top-level subexpr and constraints required
     def create_subexprs(l, line, count=0):
         # print("-->create(" + str(l) + ")")
