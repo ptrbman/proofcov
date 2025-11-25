@@ -20,6 +20,15 @@ class Neg(UnaryOp):
     def __str__(self):
         return "-" + str(self.hs)
 
+class Not(UnaryOp):
+    def to_ssa(self, uses):
+        return Not(self.hs.to_ssa(uses))
+
+    def to_bmc(self):
+         return "(not " + self.hs.to_bmc() + ")"
+
+    def __str__(self):
+        return "!" + str(self.hs)
 
 
 class BinOp(Expr):
@@ -244,6 +253,19 @@ class Assert(Line):
 
     def __str__(self):
         return "ASSERT(" + str(self.expr) + ")"
+
+class Assume(Line):
+    def __init__(self, expr, src_line):
+        self.expr = expr
+        self.src_line = src_line
+
+    def to_bmc(self):
+        return ["(not " + self.expr.to_bmc() + ")"]
+
+    def __str__(self):
+        return "ASSUME(" + str(self.expr) + ")"
+
+
 
 class Return(Line):
     def __init__(self, expr, src_line):

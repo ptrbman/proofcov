@@ -50,7 +50,7 @@ class SSANames():
     
 class CParser():
     def parse_lines(lines):
-        c_code = ''.join(lines)
+        c_code = '\n'.join(lines)
         # Create a parser object
         parser = c_parser.CParser()
 
@@ -139,6 +139,9 @@ class CParser():
             if e.op == '-':
                 hs = CParser.handle_expr(e.expr, ssa, cover)
                 return Neg(hs)
+            elif e.op == '!':
+                hs = CParser.handle_expr(e.expr, ssa, cover)
+                return Not(hs)
             else:
                raise TypeError(f"Unsupported UnaryOp: {e.op}")
         else:
@@ -151,6 +154,11 @@ class CParser():
             assert(len(args) == 1)
             expr = CParser.handle_expr(args[0], ssa)
             return Assert(expr, c.coord.line)
+        if name == "assume":
+            args = c.args.exprs
+            assert(len(args) == 1)
+            expr = CParser.handle_expr(args[0], ssa)
+            return Assume(expr, c.coord.line)
         else:
             raise TypeError(f"Unsupported call: {c}")
 
@@ -227,10 +235,20 @@ class CParser():
                     assert(s.init.name.name == 'nondet_int')
                     return [Declaration(ssa.new(name), None, s.coord.line)]
                 else:
-                    if s.init:
+                    if isinstance(s.init, c_ast.Constant):
                         return [Declaration(ssa.add(name), s.init.value, s.coord.line)]
-                    else:
+                    elif isinstance(s.init, c_ast.UnaryOp):
+                        print("\n")
+                        print(s)
+                        assert(s.init.op == '-')
+                        assert(isinstance(s.init.expr, c_ast.Constant))
+                        value = s.init.expr.value
+                        return [Declaration(ssa.add(name), '-' + value, s.coord.line)]
+                    elif not s.init:
                         return [Declaration(ssa.add(name), None, s.coord.line)]
+                    else:
+                        print(s.init)
+                        raise Exception("Mathc on type ... ")
         elif isinstance(s, c_ast.Assignment):
             op = s.op
             assert(op == '=')
@@ -252,7 +270,7 @@ class CParser():
             for a in node.decl.type.args.params:
                 n, t = a.name, a.type.type.names[0]
                 assert(t == 'int')
-                args.append((ssa.new(n), t))
+                args.append((ssa.add(n), t))
 
         stmts = []
         for s in node.body:
