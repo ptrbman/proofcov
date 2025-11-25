@@ -32,12 +32,18 @@ def split_path(file_path):
     dirpath, filename = os.path.split(file_path)
     return dirpath, filename
 
-if len(sys.argv) != 2:
-    print("Usage: proofcov <path_to_file>")
-    sys.exit(1)
+# Lets use argparse for command line arguments
+import argparse
+
+# Currently one input file (c program) and an option --graph for outputing graph 
+argsparser = argparse.ArgumentParser(description='Proof coverage tool for C programs.')
+argsparser.add_argument('input_file', metavar='input_file', type=str, help='Path to the input C file')
+# If --graph is provided, set graph to true
+argsparser.add_argument('--graph', action='store_true', help='Output control flow graph as PNG')
+args = argsparser.parse_args()
 
 # 1. Take a C file and parse it (currently we do nothing, but could have preprocessing here)
-file_path = sys.argv[1]
+file_path = args.input_file
 dirpath, filename = split_path(file_path)
 if not dirpath:
     dirpath = '.'
@@ -101,13 +107,14 @@ ast = CParser.parse_lines(unrolled_lines)
 # Call find_branches
 graph = make_graph(ast)
 
-print("\n\n")
-graph.print()
-graph.draw("cfg.gv.png")
-branches = graph.get_branches()
-exit(0)
-assert(False)
+# Extract filename of input file and replace .c with .png
+if args.graph:
+    cfg_image_path = filename.rsplit('.', 1)[0] + ".png"
+    print("Generating control flow graph at tmp/" + cfg_image_path)
+    graph.draw("tmp/" + cfg_image_path)
+
 goto, ssa = CParser.ast_to_goto(ast)
+
 print(Panel.fit("[green]Goto code:[/green]"))
 print(goto)
 

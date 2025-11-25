@@ -87,7 +87,9 @@ class Graph:
                     add_node(child)
 
         add_node(self.top_node)
-        dot.render(filename, view=False)  # view=True opens the file automatically
+        # format adds extension automatically, so we just give the name without extension
+        outfile = filename.rsplit('.', 1)[0]
+        dot.render(outfile, view=False, cleanup=True)  # view=True opens the file automatically
 
 
 def astvalue_to_string(astvalue):
@@ -154,7 +156,6 @@ def make_graph(ast) -> Graph:
         g = Graph(if_node, join_node)
         return g
     elif isinstance(ast, c_ast.FuncCall):
-        print(ast)
         s = f'{ast.name.name}{", ".join([astvalue_to_string(arg) for arg in ast.args.exprs])}'
         n = Node(line_number=ast.coord.line, text=s)
         return Graph(n, n)
@@ -162,7 +163,6 @@ def make_graph(ast) -> Graph:
         s = f'{ast.lvalue.name} {ast.op} {astvalue_to_string(ast.rvalue)}'
         n = Node(line_number=ast.coord.line, text=s)
         g = Graph(n, n)
-        g.print()
         return g
     else:
         raise Exception("Unsupported AST node in find_branches:", type(ast))
