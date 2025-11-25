@@ -6,12 +6,15 @@ from rich.panel import Panel
 from bmc import BMC
 from goto import *
 from unroller import unroll
+from grapher import make_graph
+
 import re
 from collections import defaultdict
 from rich.console import Console
 
 import os
 import sys
+
 
 # What we want do to is the folllwing:
 # 1. Take a C file and parse it
@@ -30,7 +33,7 @@ def split_path(file_path):
     return dirpath, filename
 
 if len(sys.argv) != 2:
-    print("Usage: prooflsice <path_to_file>")
+    print("Usage: proofcov <path_to_file>")
     sys.exit(1)
 
 # 1. Take a C file and parse it (currently we do nothing, but could have preprocessing here)
@@ -45,36 +48,65 @@ if not os.path.exists(dirpath + '/' + filename):
     sys.exit(1)
 
 
-
-
 lines = open(dirpath + '/' + filename, 'r').readlines()
 
+# Remove trailing newlines
+lines = [line.rstrip('\n') for line in lines]
+print("Original lines:")
 def replacer(match):
     s = match.group(0)
     if s.startswith('/'):
         return " " # note: a space and not an empty string
     else:
         return s
-pattern = re.compile(
+comment_pattern = re.compile(
     r'//.*?$|/\*.*?\*/|\'(?:\\.|[^\\\'])*\'|"(?:\\.|[^\\"])*"',
     re.DOTALL | re.MULTILINE
 )
 
-lines = re.sub(pattern, replacer, '\n'.join(lines))
+# Remove includes
+newlines = []
+for l in lines:
+    if "#include" in l:
+        newlines.append("//" + l)
+    else:
+        newlines.append(l)
+        
+lines = newlines
+
+# We change main declaration for coverage and ignore its arguments
+# So we replace int main(int argc, char *argv[]) {  -->  void main() {
+main_pattern = re.compile(r'\bint\s+main\s*\(\s*int\s+argc\s*,\s*char\s*\*\s*argv\s*\[\s*\]\s*\)\s*{')
+lines = [main_pattern.sub('void main() {', line) for line in lines]
+
+# Remove comments
+lines = re.sub(comment_pattern, replacer, '\n'.join(lines)).split('\n')
+
+
 # Remove empty lines
-lines = [line + '\n' for line in lines.split('\n') if line.strip() != '']
+# lines = [line + '\n' for line in lines.split('\n') if line.strip() != '']
 
 lines_with_numbers = [f"{i+1}: {line}" for i, line in enumerate(lines)]
-print(Panel.fit(''.join(lines_with_numbers), title="C code"))
+print(Panel.fit('\n'.join(lines_with_numbers), title="C code"))
 
 UNROLLINGS = 10
 unrolled_lines, line_map = unroll(lines, UNROLLINGS)
 
 unrolled_lines_with_numbers = [f"{i+1}: {line}" for i, line in enumerate(unrolled_lines)]
-print(Panel.fit(''.join(unrolled_lines_with_numbers), title="C code after unrolling loops"))
+print(Panel.fit('\n'.join(unrolled_lines_with_numbers), title="C code after unrolling loops"))
 
 # 2. Convert file to goto code
 ast = CParser.parse_lines(unrolled_lines)
+
+# Call find_branches
+graph = make_graph(ast)
+
+print("\n\n")
+graph.print()
+graph.draw("cfg.gv.png")
+branches = graph.get_branches()
+exit(0)
+assert(False)
 goto, ssa = CParser.ast_to_goto(ast)
 print(Panel.fit("[green]Goto code:[/green]"))
 print(goto)
@@ -114,39 +146,16 @@ for ml in marked_lines:
 print(Panel.fit("[red]Marked lines:[/red]"))
 print(f"{original_marked_lines}")
 
-
-for i in range(len(lines)):
-    if 'void main' in lines[i]:
-        ()
-    elif i+1 in original_marked_lines:
-        ()
-    elif 'else' in lines[i]:
-        ()
-    elif '}' in lines[i]:
-        ()
-    elif 'int' in lines[i]:
-        ()
-    elif lines[i].strip() == '':
-        ()
-    elif 'if' in lines[i]:
-        # If unmarked, replace it by true to ensure first branch is taken
-        # Uncomment this to force first branch to be taken (if marked it means it doesn't matter)
-        # Extract whitespace in the beginning of line
-        ws = re.match(r'\s*', lines[i]).group(0)
-        lines[i] = f'{ws}if (1 == 0) {{ // {lines[i][len(ws):]}'
-    else:
-        lines[i] = "// " + lines[i]  # Comment out unmarked lines
-
-
-output_code = ''.join(lines)
+# Write all covered lines in green and all non-covered lines in red
 console = Console()
-
-lines_with_numbers = [f"{i+1}: {line}" for i, line in enumerate(output_code.splitlines())]
-print(Panel('\n'.join(lines_with_numbers), width=80, highlight=True, title="C code with marked lines"))
-# 7. Output original code with each unmarked line removed (i.e., commented)
-
-fout = open('tmp.c', 'w')
-fout.write('#include <assert.h>\n\n')
-fout.writelines(lines)
-fout.write("\n")
-fout.close()
+covered = []
+for i, line in enumerate(lines, start=1):
+    if 'void main' in line:
+        console.print(line)
+    elif i in original_marked_lines:
+        console.print(f'[white]{i:03d}:[green]{line}')
+        covered.append(i)
+    else:
+        console.print(f'[white]{i:03d}:[red]{line}')
+       
+print("COVERED: " + ' '.join(str(l) for l in covered)) 
