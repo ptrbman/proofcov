@@ -1,6 +1,6 @@
 pyenv
 tmp.smt2
-proofslice/__pycache__
+proofcov/__pycache__
 tmp.c
 a.out
 new_examples/
