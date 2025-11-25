@@ -1,3 +1,5 @@
+#include <assert.h>
+
 void main() {
     int balance = 100;
     int transaction = 50;
