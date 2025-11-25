@@ -13,7 +13,7 @@ sudo apt install z3
 
 Please clone repository:
 ```console
-git clone https://github.com/ptrbman/proofslice.git
+git clone https://github.com/ptrbman/proofcov.git
 ```
 
 Create virtual environment and activate:
