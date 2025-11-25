@@ -79,7 +79,7 @@ class BMC():
         # This is useful if the phi is only used to select between two identical values (e.g., both branches assign b = 5)
         
         agnostic_line = [f'(assert (! {l.agnostic_bmc()[0]} :named phi.agnostic.{l.src_line}.{l.var})) ; agnostic line ' + str(l.src_line)]
-        # agnostic_line = [] # Remove to enable agnostic
+        agnostic_line = [] # Remove to enable agnostic
         if_line = [f'(assert (! {l.to_bmc()[0]} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}', f'(assert (! {l.to_bmc()[1]} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}']
         return agnostic_line + if_line, ([], l.src_line)
 
