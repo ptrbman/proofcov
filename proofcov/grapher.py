@@ -47,24 +47,11 @@ class Graph:
         self.bottom_node = bottom_node
      
     def attach(self, other_graph):
-        # Attach other_graph to this graph by connecting bottom_node to other_graph's top_node
-        if self.bottom_node.is_join:
-            # Find all nodes which have this bottom_node as child
-            nodes_to_update = []
-            def find_parents(node):
-                for child in node.children:
-                    if child == self.bottom_node:
-                        nodes_to_update.append(node)
-                    else:
-                        find_parents(child)
-                        
-            find_parents(self.top_node)
-            for n in nodes_to_update:
-                n.children.remove(self.bottom_node)
-                n.children.append(other_graph.top_node)
-        else:  
-            self.bottom_node.children.append(other_graph.top_node)
-        # The new bottom node is other_graph's bottom node
+        # We keep the join node, so attach this bottom node to the top node of other_graph
+        
+        # Ensure it is empty
+        assert(len(self.bottom_node.children) == 0)
+        self.bottom_node.children = [other_graph.top_node]
         return Graph(self.top_node, other_graph.bottom_node) 
     
     
