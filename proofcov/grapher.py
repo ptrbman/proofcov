@@ -88,6 +88,9 @@ def astvalue_to_string(astvalue):
         left = astvalue_to_string(astvalue.left)
         right = astvalue_to_string(astvalue.right)
         return f"({left} {astvalue.op} {right})"
+    elif isinstance(astvalue, c_ast.UnaryOp):
+        assert(astvalue.op == '!')
+        return f"!{astvalue_to_string(astvalue.expr)}"
     else:
         raise Exception("Unsupported AST value type in astvalue_to_string:", type(astvalue))
     
@@ -133,8 +136,8 @@ def make_graph(ast) -> Graph:
         then_graph.attach(join_graph)
         
         # Else branch
-        else_graph = make_graph(ast.iffalse)
-        if else_graph is not None:
+        if ast.iffalse is not None:
+            else_graph = make_graph(ast.iffalse)
             else_graph.attach(join_graph)
             if_node.children = [then_graph.top_node, else_graph.top_node]
         else:
