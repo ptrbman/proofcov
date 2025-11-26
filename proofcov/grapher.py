@@ -158,18 +158,18 @@ def make_graph(ast) -> Graph:
         then_graph = make_graph(ast.iftrue)
         assert(then_graph is not None)
         then_graph.attach(join_graph)
+        if_node.then_nodes = then_graph.all_nodes()
         
         # Else branch
         if ast.iffalse is not None:
             else_graph = make_graph(ast.iffalse)
             else_graph.attach(join_graph)
             if_node.children = [then_graph.top_node, else_graph.top_node]
+            if_node.else_nodes = else_graph.all_nodes()
         else:
             if_node.children = [then_graph.top_node, join_node]
      
         g = Graph(if_node, join_node)
-        # Store all nodes in g into if_node
-        if_node.nodes = g.all_nodes()
         return g
     elif isinstance(ast, c_ast.FuncCall):
         s = f'{ast.name.name}{", ".join([astvalue_to_string(arg) for arg in ast.args.exprs])}'

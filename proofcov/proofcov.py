@@ -133,7 +133,9 @@ if args.branch:
     branches = []
     branch_nodes = graph.all_branch_nodes()
     for bn in branch_nodes:
-        branches.append((bn, bn.nodes))
+        branches.append((bn, bn.then_nodes))
+        if bn.else_nodes:
+            branches.append((bn, bn.else_nodes))
 
 goto, ssa = CParser.ast_to_goto(ast)
 
