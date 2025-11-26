@@ -80,15 +80,26 @@ class Graph:
     def print(self):
         self.top_node.print_recursive(0)
         
-    def draw(self, filename):
+    def draw(self, filename, marked_lines=None):
         dot = Digraph(comment="Control Flow Graph", format=filename.split('.')[-1])
         visited = set()
 
+        if marked_lines:
+            print("Marked lines:", marked_lines)
         def add_node(node):
             node_id = str(id(node))  # unique identifier
             if node_id not in visited:
                 visited.add(node_id)
-                dot.node(node_id, node.draw_string())
+                # if node is marked, lets draw it dark green background
+                if marked_lines:
+                    if node.line_number in marked_lines:
+                        dot.node(node_id, node.draw_string(), style='filled', fillcolor='darkgreen')
+                    elif node.is_join: #gray
+                        dot.node(node_id, node.draw_string(), style='filled', fillcolor='lightgray')
+                    else:
+                        dot.node(node_id, node.draw_string(), style='filled', fillcolor='darkred')
+                else:
+                    dot.node(node_id, node.draw_string())
                 if node.target_join:
                     join_id = str(id(node.target_join))
                     dot.edge(node_id, join_id, style='dashed')
@@ -168,6 +179,7 @@ def make_graph(ast) -> Graph:
             if_node.else_nodes = else_graph.all_nodes()
         else:
             if_node.children = [then_graph.top_node, join_node]
+            if_node.else_nodes = None
      
         g = Graph(if_node, join_node)
         return g

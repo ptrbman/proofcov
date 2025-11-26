@@ -196,6 +196,13 @@ if args.line:
     total_lines = len(graph.all_nodes())
     covered_lines = len(covered)
     print(f"Line coverage: {covered_lines}/{total_lines} ({(covered_lines/total_lines)*100:.2f}%)")
+    
+    if args.graph:
+        cfg_image_path = filename.rsplit('.', 1)[0] + "_line.png"
+        print("Generating control flow graph (line coverage) at tmp/" + cfg_image_path)
+        graph.draw("tmp/" + cfg_image_path, covered)
+
+
             
 if args.branch:
     total_branches = len(branches)
