@@ -26,6 +26,7 @@ Install required Python packages:
 ```console
 pip install rich
 pip install pycparser
+pip install graphviz
 ```
 
 ## Running ProofCov
