@@ -132,11 +132,7 @@ branches = None
 if args.branch:
     branches = []
     branch_nodes = graph.all_branch_nodes()
-    print(Panel.fit("[yellow]Branch coverage information:[/yellow]"))
     for bn in branch_nodes:
-        print(f"Branch at line {bn.line_number} with target join at line {bn.target_join.line_number if bn.target_join.line_number else 'N/A'}")
-        for n in bn.nodes:
-            print(f"  Node at line {n.line_number}: {n.text}")
         branches.append((bn, bn.nodes))
 
 goto, ssa = CParser.ast_to_goto(ast)
