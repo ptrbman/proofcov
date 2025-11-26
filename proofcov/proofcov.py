@@ -179,12 +179,16 @@ console = Console()
 
 if args.line:
     covered = []
+    if args.verbose:
+        print(Panel.fit("[yellow]Line coverage details:[/yellow]"))
     for i, line in enumerate(lines, start=1):
         if i in original_marked_lines:
-            console.print(f'[white]{i:03d}:[green]{line}')
+            if args.verbose:    
+                console.print(f'[white]{i:03d}:[green]{line}')
             covered.append(i)
         else:
-            console.print(f'[white]{i:03d}:[red]{line}')
+            if args.verbose:    
+                console.print(f'[white]{i:03d}:[red]{line}')
     # Display line coverage as a fraction and percentage
     # Retrieve number of lines from graph
     total_lines = len(graph.all_nodes())
@@ -194,17 +198,28 @@ if args.line:
 if args.branch:
     total_branches = len(branches)
     covered_branches = 0
-    print(Panel.fit("[yellow]Branch coverage details:[/yellow]"))
+    if args.verbose:    
+        print(Panel.fit("[yellow]Branch coverage details:[/yellow]"))
     for bn, nodes in branches:
         covered = False
-        console.print(f'[white]Branch at line {bn.line_number} with target join at line {bn.target_join.line_number if bn.target_join.line_number else "N/A"}[/white]')
+        if args.verbose:    
+            console.print(f'[white]Branch at line {bn.line_number} with target join at line {bn.target_join.line_number if bn.target_join.line_number else "N/A"}[/white]')
         for n in nodes:
             if n.line_number in original_marked_lines:
-                console.print(f'  [white]Node at line {n.line_number}:[green] {n.text}[/green][/white]')
+                if args.verbose:    
+                    console.print(f'  [white]Node at line {n.line_number}:[green] {n.text}[/green][/white]')
                 covered = True
             else:
-                console.print(f'  [white]Node at line {n.line_number}:[red] {n.text}[/red][/white]') 
+                if args.verbose:    
+                    console.print(f'  [white]Node at line {n.line_number}:[red] {n.text}[/red][/white]') 
         if covered:
             covered_branches += 1
     # Display branch coverage as a fraction and percentage
+    print(f"Branch coverage: {covered_branches}/{total_branches} ({(covered_branches/total_branches)*100:.2f}%)")
+    
+    
+if args.all and args.verbose:
+    # Print summary of both coverage
+    print(Panel.fit("[yellow]Coverage summary:[/yellow]"))
+    print(f"Line coverage: {covered_lines}/{total_lines} ({(covered_lines/total_lines)*100:.2f}%)")
     print(f"Branch coverage: {covered_branches}/{total_branches} ({(covered_branches/total_branches)*100:.2f}%)")
