@@ -18,11 +18,12 @@ from graphviz import Digraph
 # We will work with graphs where each graph has one top node, one bottom node and one or more internal nodes
 
 class Node:
-    def __init__(self, line_number, text, is_join=False):
+    def __init__(self, line_number, text, target_join=None, is_join=False):
         self.line_number = line_number
         self.text = text
         self.children = []
         self.is_join = is_join
+        self.target_join = target_join  # for branches, points to the join node
 
     def print_recursive(self, indent):
         print(" " * indent + str(self))
@@ -68,6 +69,9 @@ class Graph:
             if node_id not in visited:
                 visited.add(node_id)
                 dot.node(node_id, node.draw_string())
+                if node.target_join:
+                    join_id = str(id(node.target_join))
+                    dot.edge(node_id, join_id, style='dashed')
                 for child in node.children:
                     child_id = str(id(child))
                     dot.edge(node_id, child_id)
@@ -124,10 +128,10 @@ def make_graph(ast) -> Graph:
         return None
     elif isinstance(ast, c_ast.If):
         s = f'if ({astvalue_to_string(ast.cond)})'
-        if_node = Node(line_number=ast.coord.line, text=s)
+        join_node = Node(line_number=None, text="JOIN", is_join=True)
+        if_node = Node(line_number=ast.coord.line, text=s, target_join=join_node)
         
         # We need a join node
-        join_node = Node(line_number=None, text="JOIN", is_join=True)
         join_graph = Graph(join_node, join_node)
          
         # Then branch
