@@ -55,7 +55,27 @@ class Graph:
         self.bottom_node.children = [other_graph.top_node]
         return Graph(self.top_node, other_graph.bottom_node) 
     
-    
+   
+    def all_nodes(self):
+        nodes = []
+        visited = set()
+
+        def collect(node):
+            node_id = id(node)
+            if node_id not in visited:
+                visited.add(node_id)
+                if not node.is_join:
+                    nodes.append(node)
+                for child in node.children:
+                    collect(child)
+
+        collect(self.top_node)
+        return nodes    
+
+    def all_branch_nodes(self):
+        all_nodes = self.all_nodes()
+        branch_nodes = [n for n in all_nodes if n.target_join is not None]
+        return branch_nodes
     
     def print(self):
         self.top_node.print_recursive(0)
@@ -146,8 +166,10 @@ def make_graph(ast) -> Graph:
             if_node.children = [then_graph.top_node, else_graph.top_node]
         else:
             if_node.children = [then_graph.top_node, join_node]
-      
+     
         g = Graph(if_node, join_node)
+        # Store all nodes in g into if_node
+        if_node.nodes = g.all_nodes()
         return g
     elif isinstance(ast, c_ast.FuncCall):
         s = f'{ast.name.name}{", ".join([astvalue_to_string(arg) for arg in ast.args.exprs])}'

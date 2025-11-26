@@ -40,14 +40,27 @@ argsparser = argparse.ArgumentParser(description='Proof coverage tool for C prog
 argsparser.add_argument('input_file', metavar='input_file', type=str, help='Path to the input C file')
 # If --graph is provided, set graph to true
 argsparser.add_argument('--graph', action='store_true', help='Output control flow graph as PNG')
+# If --line is provided, set branch to true
+argsparser.add_argument('--line', action='store_true', help='Output line coverage information')
+# If --branch is provided, set branch to true
+argsparser.add_argument('--branch', action='store_true', help='Output branch coverage information')
+# If --all set both line and branch to true
+argsparser.add_argument('--all', action='store_true', help='Output both line and branch coverage information')
+# If -v or --verbose is provided, set verbose to true
+argsparser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
+
 args = argsparser.parse_args()
+
+if args.all:
+    args.line = True
+    args.branch = True
 
 # 1. Take a C file and parse it (currently we do nothing, but could have preprocessing here)
 file_path = args.input_file
 dirpath, filename = split_path(file_path)
 if not dirpath:
     dirpath = '.'
-print("Opening file", dirpath + "/" + filename)
+print("\[proofcov] Opening file", dirpath + "/" + filename)
 
 if not os.path.exists(dirpath + '/' + filename):
     print(f"[red]Error: File '{filename}' does not exist in directory '{dirpath}'[/red]")
@@ -58,7 +71,6 @@ lines = open(dirpath + '/' + filename, 'r').readlines()
 
 # Remove trailing newlines
 lines = [line.rstrip('\n') for line in lines]
-print("Original lines:")
 def replacer(match):
     s = match.group(0)
     if s.startswith('/'):
@@ -93,18 +105,21 @@ lines = re.sub(comment_pattern, replacer, '\n'.join(lines)).split('\n')
 # lines = [line + '\n' for line in lines.split('\n') if line.strip() != '']
 
 lines_with_numbers = [f"{i+1}: {line}" for i, line in enumerate(lines)]
-print(Panel.fit('\n'.join(lines_with_numbers), title="C code"))
+if args.verbose:
+    print(Panel.fit('\n'.join(lines_with_numbers), title="C code"))
 
 UNROLLINGS = 10
 unrolled_lines, line_map = unroll(lines, UNROLLINGS)
 
 unrolled_lines_with_numbers = [f"{i+1}: {line}" for i, line in enumerate(unrolled_lines)]
-print(Panel.fit('\n'.join(unrolled_lines_with_numbers), title="C code after unrolling loops"))
+
+if args.verbose:
+    print(Panel.fit('\n'.join(unrolled_lines_with_numbers), title="C code after unrolling loops"))
 
 # 2. Convert file to goto code
 ast = CParser.parse_lines(unrolled_lines)
 
-# Call find_branches
+# Create CFG
 graph = make_graph(ast)
 
 # Extract filename of input file and replace .c with .png
@@ -113,15 +128,29 @@ if args.graph:
     print("Generating control flow graph at tmp/" + cfg_image_path)
     graph.draw("tmp/" + cfg_image_path)
 
+branches = None
+if args.branch:
+    branches = []
+    branch_nodes = graph.all_branch_nodes()
+    print(Panel.fit("[yellow]Branch coverage information:[/yellow]"))
+    for bn in branch_nodes:
+        print(f"Branch at line {bn.line_number} with target join at line {bn.target_join.line_number if bn.target_join.line_number else 'N/A'}")
+        for n in bn.nodes:
+            print(f"  Node at line {n.line_number}: {n.text}")
+        branches.append((bn, bn.nodes))
+
 goto, ssa = CParser.ast_to_goto(ast)
 
-print(Panel.fit("[green]Goto code:[/green]"))
-print(goto)
+if args.verbose:
+    print(Panel.fit("[green]Goto code:[/green]"))
+    print(goto)
 
 # 3. Convert goto code to BMC formula
 formula, annotated_nodes = BMC.gen_formula(goto, ssa)
-print(Panel.fit("[purple]SMT formula:[/purple]"))
-print(formula)
+
+if args.verbose:
+    print(Panel.fit("[purple]SMT formula:[/purple]"))
+    print(formula)
 
 # 4. Run BMC on the formula
 sat = BMC.check_sat(formula)
@@ -132,37 +161,54 @@ if (sat):
 
 # 5. If BMC returns a core, extract the lines and subexpressions
 result = BMC.get_core(formula)
-print(Panel.fit("[blue]Unsat core:[/blue]"))
-print(f"{result}")
+if args.verbose:
+    print(Panel.fit("[blue]Unsat core:[/blue]"))
+    print(f"{result}")
 
 # 6. Find each line which is used by the core and translate back to original and mark it
 marked_lines = list(result)
 marked_lines.sort()
-
-# print("Marked lines:", marked_lines)
-# print("Line map:", line_map)
-
 original_marked_lines = set()
 
 for ml in marked_lines:
     original_marked_lines.add(line_map[ml-1] + 1)
-    # print(f"Marked line {ml} corresponds to original line {line_map[ml-1] + 1}")
 
-
-# print(f"original_marked_lines: {original_marked_lines}")
-print(Panel.fit("[red]Marked lines:[/red]"))
-print(f"{original_marked_lines}")
+if args.verbose:
+    print(Panel.fit("[red]Marked lines:[/red]"))
+    print(f"{original_marked_lines}")
 
 # Write all covered lines in green and all non-covered lines in red
 console = Console()
-covered = []
-for i, line in enumerate(lines, start=1):
-    if 'void main' in line:
-        console.print(line)
-    elif i in original_marked_lines:
-        console.print(f'[white]{i:03d}:[green]{line}')
-        covered.append(i)
-    else:
-        console.print(f'[white]{i:03d}:[red]{line}')
-       
-print("COVERED: " + ' '.join(str(l) for l in covered)) 
+
+
+if args.line:
+    covered = []
+    for i, line in enumerate(lines, start=1):
+        if i in original_marked_lines:
+            console.print(f'[white]{i:03d}:[green]{line}')
+            covered.append(i)
+        else:
+            console.print(f'[white]{i:03d}:[red]{line}')
+    # Display line coverage as a fraction and percentage
+    # Retrieve number of lines from graph
+    total_lines = len(graph.all_nodes())
+    covered_lines = len(covered)
+    print(f"Line coverage: {covered_lines}/{total_lines} ({(covered_lines/total_lines)*100:.2f}%)")
+            
+if args.branch:
+    total_branches = len(branches)
+    covered_branches = 0
+    print(Panel.fit("[yellow]Branch coverage details:[/yellow]"))
+    for bn, nodes in branches:
+        covered = False
+        console.print(f'[white]Branch at line {bn.line_number} with target join at line {bn.target_join.line_number if bn.target_join.line_number else "N/A"}[/white]')
+        for n in nodes:
+            if n.line_number in original_marked_lines:
+                console.print(f'  [white]Node at line {n.line_number}:[green] {n.text}[/green][/white]')
+                covered = True
+            else:
+                console.print(f'  [white]Node at line {n.line_number}:[red] {n.text}[/red][/white]') 
+        if covered:
+            covered_branches += 1
+    # Display branch coverage as a fraction and percentage
+    print(f"Branch coverage: {covered_branches}/{total_branches} ({(covered_branches/total_branches)*100:.2f}%)")
