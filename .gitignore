@@ -4,3 +4,5 @@ proofcov/__pycache__/*
 tmp.c
 a.out
 new_examples/
+tcas/tmp
+tmp
