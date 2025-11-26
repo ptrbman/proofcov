@@ -134,7 +134,7 @@ def run_proofcov(exp_file):
     # Run proofcov on the given experiment file
     import subprocess
     
-    proofcov_cmd = ["proofcov", exp_file]
+    proofcov_cmd = ["python3", "../proofcov/proofcov.py", exp_file]
     print("  Running proofcov:", ' '.join(proofcov_cmd))
     result = subprocess.run(proofcov_cmd, check=True, capture_output=True, text=True)
     # Extract covered lines from output
