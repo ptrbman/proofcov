@@ -134,16 +134,16 @@ def run_proofcov(exp_file):
     # Run proofcov on the given experiment file
     import subprocess
     
-    proofcov_cmd = ["python3", "../proofcov/proofcov.py", exp_file]
+    proofcov_cmd = ["python3", "../proofcov/proofcov.py", "--experiment", exp_file]
     print("  Running proofcov:", ' '.join(proofcov_cmd))
     result = subprocess.run(proofcov_cmd, check=True, capture_output=True, text=True)
+    print(result)
     # Extract covered lines from output
     for line in result.stdout.splitlines():
         if "COVERED:" in line:
             # Conver to python list of integers
             numbers = list(map(int, line.split("COVERED:")[1].strip().split(' ')))
             return numbers
-    assert(False)
 
 def run_params(param_string, exp_no):
     values = param_string.strip().split(' ')

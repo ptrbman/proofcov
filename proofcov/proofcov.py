@@ -48,6 +48,8 @@ argsparser.add_argument('--branch', action='store_true', help='Output branch cov
 argsparser.add_argument('--all', action='store_true', help='Output both line and branch coverage information')
 # If -v or --verbose is provided, set verbose to true
 argsparser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
+# If --experiment is provided, set experiment mode
+argsparser.add_argument('--experiment', action='store_true', help='Run in experiment mode on tcas')
 
 args = argsparser.parse_args()
 
@@ -178,6 +180,10 @@ if args.verbose:
 # Write all covered lines in green and all non-covered lines in red
 console = Console()
 
+if args.experiment:
+    # In experiment mode we just output the marked lines as a list
+    print("COVERED:", ' '.join(map(str, sorted(original_marked_lines))))
+    sys.exit(0)
 
 if args.line:
     covered = []

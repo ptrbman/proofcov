@@ -42,11 +42,60 @@ def parse_output_to_int(s):
         raise ValueError("empty output")
     return int(toks[0])
 
+def prepare_original():
+    # Compile original tcas.c to tcas_orig
+    compile_cmd = ["gcc", "-o", "tcas_orig", "tcas_original.c"]
+    print("Compiling original tcas.c:", ' '.join(compile_cmd))
+    subprocess.run(compile_cmd, check=True)
+
+def prepare_template():
+    # Prepare tcas.c from tcas_template.c
+    with open("../tcas_template.c", "r") as f:
+        template = f.read()
+        
+    # We have to replace // INPUT with reading from argv
+    input_code = """
+    if (argc != 13) {
+        printf("Error: Expected 12 input arguments.\\n");
+        return 1;
+    }
+    int Cur_Vertical_Sep = atoi(argv[1]);
+    int High_Confidence = atoi(argv[2]);
+    int Two_of_Three_Reports_Valid = atoi(argv[3]);
+    int Own_Tracked_Alt = atoi(argv[4]);
+    int Own_Tracked_Alt_Rate = atoi(argv[5]);
+    int Other_Tracked_Alt = atoi(argv[6]);
+    int Alt_Layer_Value = atoi(argv[7]);
+    int Up_Separation = atoi(argv[8]);
+    int Down_Separation = atoi(argv[9]);
+    int Other_RAC = atoi(argv[10]);
+    int Other_Capability = atoi(argv[11]);
+    int Climb_Inhibit = atoi(argv[12]);
+    """
+    template = template.replace("// INPUTS", input_code)
+   
+    # We also have to include for atoi in beginning
+    template = template.replace("#include <stdio.h>", "#include <stdio.h>\n#include <stdlib.h>")  
+    
+    # Also replace OUTPUT with just printing alt_sep
+    template = template.replace("// OUTPUT", 'printf("%d\\n", alt_sep);')    
+    
+    with open("tcas_template.c", "w") as f:
+        f.write(template)
+    
+    # Compile tcas_template.c to tcas_template
+    compile_cmd = ["gcc", "-o", "tcas_template", "tcas_template.c"]
+    print("Compiling tcas_template.c:", ' '.join(compile_cmd))
+    subprocess.run(compile_cmd, check=True)
+        
+
 def main():
+    prepare_original()
+    prepare_template()
     for i, line in enumerate(INPUT_LINES, start=1):
         args = [tok for tok in line.split() if tok]
-
-        rc1, out1, err1 = run_tool("./tcas", args)
+        
+        rc1, out1, err1 = run_tool("./tcas_template", args)
         rc2, out2, err2 = run_tool("./tcas_orig", args)
 
         if rc1 != 0 or rc2 != 0:
@@ -60,7 +109,7 @@ def main():
         try:
             v1 = parse_output_to_int(out1)
         except Exception as e:
-            print(f"LINE {i}: PARSE_ERROR tacs output='{out1}' reason={e}")
+            print(f"LINE {i}: PARSE_ERROR tcas_template output='{out1}' reason={e}")
             continue
 
         try:
