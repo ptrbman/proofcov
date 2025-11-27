@@ -157,7 +157,7 @@ class CParser():
         else:
             raise TypeError(f"Unsupported call: {c}")
 
-    def handle_string_expr(expr, ssa, track_undef):
+    def handle_string_expr(expr, ssa):
         raise NotImplementedError("handle_string_expr is not implemented yet")
 
 
@@ -190,9 +190,8 @@ class CParser():
         
             ssa.current = ssa_current_before.copy()
            
-            result = CParser.handle_if(s.coord.line, cond, iftrue, iffalse, ssa, ssa_current_before, ssa_false_current, ssa_true_current, false_writes, true_writes)
+            return CParser.handle_if(s.coord.line, cond, iftrue, iffalse, ssa, ssa_current_before, ssa_false_current, ssa_true_current, false_writes, true_writes)
            
-            return result
         elif isinstance(s, c_ast.Compound):
             if not s.block_items:
                 return []
@@ -261,9 +260,7 @@ class CParser():
             #TODO: if we do not care about types this can be ignored
             return None
         else:
-            print("Unsupported node", node)
-            assert(False)
-
+            raise NotImplementedError("Unsupported node type in AST" + str(type(node)))
 
     def ast_to_goto(ast):
         gotos = []
