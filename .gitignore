@@ -9,3 +9,11 @@ tmp
 tcas/regression/tcas_template.c
 tcas/regression/tcas_original.c
 tcas/tcas_template.c
+tcas/proofcov_template.c
+tcas/solutions.txt
+tcas/tcas_template.c
+tcas/universe_fixed.txt
+tcas/regression/all.txt
+tcas/regression/tcas_template
+tcas/regression/tcas_orig
+tcas/regression/universe_fixed.txt
