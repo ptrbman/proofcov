@@ -138,7 +138,7 @@ if args.verbose:
     print(goto)
 
 # 3. Convert goto code to BMC formula
-formula, annotated_nodes = BMC.gen_formula(goto, ssa)
+formula, annotated_nodes = BMC.gen_formula(goto, ssa, track_undef=args.track_undef)
 
 if args.verbose:
     print(Panel.fit("[purple]SMT formula:[/purple]"))

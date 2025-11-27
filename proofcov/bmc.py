@@ -4,11 +4,11 @@ import subprocess
 import re
 
 class BMC():
-
+   
     subexpr_count = {}
 
-    def make_assert(line):
-        return ["(assert (! " + b + " :named line" + str(line.src_line) + "." + str(i) + ")) ; line " + str(line.src_line) for i, b in enumerate(line.to_bmc())]
+    def make_assert(line, track_undef):
+        return ["(assert (! " + b + " :named line" + str(line.src_line) + "." + str(i) + ")) ; line " + str(line.src_line) for i, b in enumerate(line.to_bmc(track_undef))]
 
 
     # This is used to track the usage of subexpressions in if-statements (e.g., in if (a && b) we can cover only a or b).
@@ -63,28 +63,18 @@ class BMC():
             # print_node(lhs, depth+1)
 
     # So if we handle l, we also want to be able to display the coverage
-    def handle_phi(l):
-       # TODO: we assume one expr per line ...
-    #    count = 0
-    #    node, constraints, count, annotated = BMC.create_subexprs(l.cond, l.src_line)
-    #    print("Handling phi:", l, "=>", node, constraints)
-    #    print(node)
-    #    for c in constraints:
-        #    print(c)
-    #    l.cond = node
-    #    BMC.print_node(annotated)
-    #    return constraints + ["(assert " + l.to_bmc()[0] +")", "(assert " + l.to_bmc()[1] +")"], (annotated, l.src_line)
-    
+    def handle_phi(l, track_undef):
         # We add an option of allowing to bypass phinodes and remaining agonstic to which branch was taken
         # This is useful if the phi is only used to select between two identical values (e.g., both branches assign b = 5)
         
-        agnostic_line = [f'(assert (! {l.agnostic_bmc()[0]} :named phi.agnostic.{l.src_line}.{l.var})) ; agnostic line ' + str(l.src_line)]
+        agnostic_line = [f'(assert (! {l.agnostic_bmc(track_undef)[0]} :named phi.agnostic.{l.src_line}.{l.var})) ; agnostic line ' + str(l.src_line)]
         agnostic_line = [] # Remove to enable agnostic
-        if_line = [f'(assert (! {l.to_bmc()[0]} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}', f'(assert (! {l.to_bmc()[1]} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}']
+        if_line = [f'(assert (! {l.to_bmc(track_undef)[0]} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}', f'(assert (! {l.to_bmc(track_undef)[1]} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}']
         return agnostic_line + if_line, ([], l.src_line)
 
-    def gen_formula(goto, ssa):
+    def gen_formula(goto, ssa, track_undef=False):
         assert(isinstance(goto, Function))
+        
         # Turn each arg into declaration
         decls = [Declaration(a[0], -1) for a in goto.args]
         lines = decls + goto.body
@@ -94,6 +84,9 @@ class BMC():
             for i in range(ssa.count(k) + 1):
                 n = k + "." + str(i)
                 header.append("(declare-fun " + n + " () (Int))")
+                if (track_undef):
+                    # Add a special untracked flag for each variable version
+                    header.append("(declare-fun " + n + ".undef () (Int))")
 
         constraints = []
         annotated_nodes = []
@@ -103,7 +96,7 @@ class BMC():
                 print("¬", l)
             if isinstance(l, Declaration):
                 if l.value:
-                    constraints += BMC.make_assert(l)
+                    constraints += BMC.make_assert(l, track_undef)
                 else:
                     if verbose:
                         print("\tIgnoring declaration with no value/nondet")
@@ -111,7 +104,7 @@ class BMC():
                 if verbose:
                     print("\tIgnoring JumpIf")
             elif isinstance(l, Assignment):
-                asrt = BMC.make_assert(l)
+                asrt = BMC.make_assert(l, track_undef)
                 if verbose:
                     print("\tAssignment:", l, "=>", asrt)
                 constraints += asrt
@@ -122,13 +115,13 @@ class BMC():
                 if verbose:
                     print("\tIgnoring Label")
             elif isinstance(l, Phi):
-                cons, annotated_node = BMC.handle_phi(l)
+                cons, annotated_node = BMC.handle_phi(l, track_undef)
                 constraints += cons
                 annotated_nodes.append(annotated_node)
                 if verbose:
                     print("\tPhi:", l, "=>", asrt)
             elif isinstance(l, Assert):
-                asrt = BMC.make_assert(l)
+                asrt = BMC.make_assert(l, track_undef)
                 if verbose:
                     print("\tAssert:", l, " => ", asrt)
                 constraints += asrt
