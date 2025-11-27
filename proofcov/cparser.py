@@ -238,8 +238,6 @@ class CParser():
                     if isinstance(s.init, c_ast.Constant):
                         return [Declaration(ssa.add(name), s.init.value, s.coord.line)]
                     elif isinstance(s.init, c_ast.UnaryOp):
-                        print("\n")
-                        print(s)
                         assert(s.init.op == '-')
                         assert(isinstance(s.init.expr, c_ast.Constant))
                         value = s.init.expr.value
