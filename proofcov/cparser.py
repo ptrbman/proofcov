@@ -162,13 +162,8 @@ class CParser():
         else:
             raise TypeError(f"Unsupported call: {c}")
 
-    def handle_string_expr(expr, ssa):
-        # TODO: Create a single parser to use
-        parser = c_parser.CParser()
-        ifexpr = "void foo() { if ("  + expr + ") {} }"
-        ast = parser.parse(ifexpr)
-        cond = ast.ext[0].body.block_items[0].cond
-        return CParser.handle_expr(cond, ssa)
+    def handle_string_expr(expr, ssa, track_undef):
+        raise NotImplementedError("handle_string_expr is not implemented yet")
 
     def handle_assume(s, ssa):
         expr = s.init.value[1:-1]
