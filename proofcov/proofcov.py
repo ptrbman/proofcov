@@ -5,7 +5,6 @@ from rich import print
 from rich.panel import Panel
 from bmc import BMC
 from goto import *
-from unroller import unroll
 from grapher import make_graph
 
 import re
@@ -20,7 +19,6 @@ import sys
 # 1. Take a C file and parse it
 #    ... assume it contains a single (main) function
 #    ... assume it ends with a single assert statement
-#    ... Unroll all loops
 # 2. Convert file to goto code
 # 3. Convert goto code to BMC formula
 # 4. Run BMC on the formula
@@ -110,16 +108,8 @@ lines_with_numbers = [f"{i+1}: {line}" for i, line in enumerate(lines)]
 if args.verbose:
     print(Panel.fit('\n'.join(lines_with_numbers), title="C code"))
 
-UNROLLINGS = 10
-unrolled_lines, line_map = unroll(lines, UNROLLINGS)
-
-unrolled_lines_with_numbers = [f"{i+1}: {line}" for i, line in enumerate(unrolled_lines)]
-
-if args.verbose:
-    print(Panel.fit('\n'.join(unrolled_lines_with_numbers), title="C code after unrolling loops"))
-
 # 2. Convert file to goto code
-ast = CParser.parse_lines(unrolled_lines)
+ast = CParser.parse_lines(lines)
 
 # Create CFG
 graph = make_graph(ast)
@@ -168,10 +158,7 @@ if args.verbose:
 # 6. Find each line which is used by the core and translate back to original and mark it
 marked_lines = list(result)
 marked_lines.sort()
-original_marked_lines = set()
-
-for ml in marked_lines:
-    original_marked_lines.add(line_map[ml-1] + 1)
+original_marked_lines = marked_lines
 
 if args.verbose:
     print(Panel.fit("[red]Marked lines:[/red]"))
