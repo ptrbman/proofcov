@@ -6,3 +6,6 @@ a.out
 new_examples/
 tcas/tmp
 tmp
+tcas/regression/tcas_template.c
+tcas/regression/tcas_original.c
+tcas/tcas_template.c
