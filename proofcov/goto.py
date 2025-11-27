@@ -14,8 +14,8 @@ class Neg(UnaryOp):
     def to_ssa(self, uses):
         return Neg(self.hs.to_ssa(uses))
 
-    def to_bmc(self):
-         return "(- 0 " + self.hs.to_bmc() + ")" # TODO: Fix unary - SMT
+    def to_bmc(self, track_undef):
+         return "(- 0 " + self.hs.to_bmc(track_undef) + ")" # TODO: Fix unary - SMT
 
     def __str__(self):
         return "-" + str(self.hs)
@@ -24,8 +24,8 @@ class Not(UnaryOp):
     def to_ssa(self, uses):
         return Not(self.hs.to_ssa(uses))
 
-    def to_bmc(self):
-         return "(not " + self.hs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+         return "(not " + self.hs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return "!" + str(self.hs)
@@ -41,8 +41,8 @@ class Eq(BinOp):
     def to_ssa(self, uses):
         return Eq(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(= " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        return "(= " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return str(self.lhs) + " == " + str(self.rhs)
@@ -52,8 +52,8 @@ class Ne(BinOp):
     def to_ssa(self, uses):
         return Ne(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(not (= " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + "))"
+    def to_bmc(self, track_undef):
+        return "(not (= " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + "))"
 
     def __str__(self):
         return str(self.lhs) + " != " + str(self.rhs)
@@ -66,8 +66,8 @@ class Gt(BinOp):
     def to_ssa(self, uses):
         return Gt(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(> " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        return "(> " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return str(self.lhs) + " > " + str(self.rhs)
@@ -78,8 +78,8 @@ class Ge(BinOp):
     def to_ssa(self, uses):
         return Ge(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(>= " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        return "(>= " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return str(self.lhs) + " >= " + str(self.rhs)
@@ -90,8 +90,8 @@ class Lt(BinOp):
     def to_ssa(self, uses):
         return Lt(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(< " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        return "(< " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return str(self.lhs) + " < " + str(self.rhs)
@@ -101,8 +101,8 @@ class Le(BinOp):
     def to_ssa(self, uses):
         return Le(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(<= " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        return "(<= " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return str(self.lhs) + " <= " + str(self.rhs)
@@ -111,8 +111,8 @@ class Div(BinOp):
     def to_ssa(self, uses):
         return Div(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(div " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        return "(div " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return str(self.lhs) + " / " + str(self.rhs)
@@ -121,8 +121,8 @@ class Mod(BinOp):
     def to_ssa(self, uses):
         return Mod(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(mod " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        return "(mod " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return str(self.lhs) + " % " + str(self.rhs)
@@ -134,8 +134,8 @@ class And(BinOp):
     def to_ssa(self, uses):
         return And(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(and " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        return "(and " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return str(self.lhs) + " && " + str(self.rhs)
@@ -145,8 +145,8 @@ class Or(BinOp):
     def to_ssa(self, uses):
         return Or(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(or " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        return "(or " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return str(self.lhs) + " || " + str(self.rhs)
@@ -160,8 +160,8 @@ class Add(BinOp):
     def to_ssa(self, uses):
         return Add(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(+ " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        return "(+ " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return str(self.lhs) + " + " + str(self.rhs)
@@ -170,8 +170,8 @@ class Sub(BinOp):
     def to_ssa(self, uses):
         return Sub(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(- " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        return "(- " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return str(self.lhs) + " - " + str(self.rhs)
@@ -182,8 +182,8 @@ class Mul(BinOp):
     def to_ssa(self, uses):
         return Mul(self.lhs.to_ssa(uses), self.rhs.to_ssa(uses))
 
-    def to_bmc(self):
-        return "(* " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        return "(* " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
 
     def __str__(self):
         return str(self.lhs) + " * " + str(self.rhs)
@@ -195,7 +195,7 @@ class Var(Expr):
     def __init__(self, name):
         self.name = name
 
-    def to_bmc(self):
+    def to_bmc(self, track_undef):
         return self.name
 
     def __str__(self):
@@ -205,7 +205,7 @@ class Constant(Expr):
     def __init__(self, val):
         self.val = val
 
-    def to_bmc(self):
+    def to_bmc(self, track_undef):
         return str(self.val)
 
     def __str__(self):
@@ -224,7 +224,7 @@ class Skip(Line):
     def __init__(self):
         None
         
-    def to_bmc(self):
+    def to_bmc(self, track_undef):
         return []
     
     def __str__(self):
@@ -236,8 +236,8 @@ class Assert(Line):
         self.expr = expr
         self.src_line = src_line
 
-    def to_bmc(self):
-        return ["(not " + self.expr.to_bmc() + ")"]
+    def to_bmc(self, track_undef):
+        return ["(not " + self.expr.to_bmc(track_undef) + ")"]
 
     def __str__(self):
         return "ASSERT(" + str(self.expr) + ")"
@@ -260,9 +260,9 @@ class Declaration(Line):
     def __str__(self):
         return "DECL(" + str(self.name) + ", " + str(self.value) + ")"
 
-    def to_bmc(self):
+    def to_bmc(self, track_undef):
+        # TODO: here
         return ["(= " + self.name + " " + self.value + ")"]
-        assert(False)
 
     
 class Assignment(Line):
@@ -275,8 +275,9 @@ class Assignment(Line):
     def assignment(self):
         return self.lhs
 
-    def to_bmc(self):
-        return ["(= " + self.lhs.to_bmc() + " " + self.rhs.to_bmc() + ")"]
+    def to_bmc(self, track_undef):
+        # TODO: here
+        return ["(= " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"]
 
     def __str__(self):
         return str(self.lhs) + " := " + str(self.rhs)
@@ -322,15 +323,15 @@ class Phi(Line):
         self.iffalse = iffalse
         self.src_line = src_line
 
-    def to_bmc(self):
-        notcond = "(not " + self.cond.to_bmc() + ")"
+    def to_bmc(self, track_undef):
+        notcond = "(not " + self.cond.to_bmc(track_undef) + ")"
         ift = "(= " + self.var + " " + str(self.iftrue) + ")"
         iff = "(= " + self.var + " " + str(self.iffalse) + ")"
         a = "(or " + notcond + " " + ift + ")"
-        b = "(or " + self.cond.to_bmc() + " " + iff + ")"
+        b = "(or " + self.cond.to_bmc(track_undef) + " " + iff + ")"
         return [a, b]
 
-    def agnostic_bmc(self):
+    def agnostic_bmc(self, track_undef):
         return ["(or (= " + self.var + " " + str(self.iftrue) + ") (= " + self.var + " " + str(self.iffalse) + "))"]  
 
     def __str__(self):
