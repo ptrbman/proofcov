@@ -7,7 +7,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
 #define OLEV       600		/* in feets/minute */
 #define MAXALTDIFF 600		/* max altitude difference in feet */
 #define MINSEP     300          /* min separation in feet */
@@ -15,6 +14,10 @@
 				/* variables */
 
 typedef int bool;
+
+
+bool Own_Below_Threat();
+bool Own_Above_Threat();
 
 int Cur_Vertical_Sep;
 bool High_Confidence;
@@ -142,9 +145,7 @@ int alt_sep_test()
     return alt_sep;
 }
 
-main(argc, argv)
-int argc;
-char *argv[];
+void main(int argc, char *argv[])
 {
     if(argc < 13)
     {
