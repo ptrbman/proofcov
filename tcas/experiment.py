@@ -51,8 +51,8 @@ def write_experiment_file(inputs, output, exp_no):
     input_lines.append("")  # blank line before return
     
     # Copy tcas_template.c to tmp/exp_##.c with inputs, with ## being exp_no
-    template_path = 'tcas_template.c'
-    out_path = f'tmp/exp_{exp_no:03d}.c'
+    template_path = 'proofcov_template.c'
+    out_path = f'tmp/tcas_{exp_no:04d}.c'
     with open(template_path, 'r') as f:
         template_lines = f.readlines()
  
@@ -74,29 +74,28 @@ def write_experiment_file(inputs, output, exp_no):
     
     return out_path
     
-
 def run_gcov(exp_file):
     # Run gcov on the given experiment file
     import os
     import subprocess
     
-    # First compile with coverage options, output to tmp/exp_###
-    gcc_cmd = ["gcc", "-fprofile-arcs", "-ftest-coverage", "-o", exp_file.replace('.c', ''), exp_file]
-    print("  Compiling with gcov:", ' '.join(gcc_cmd))
-    subprocess.run(gcc_cmd, check=True)
-   
-    # Clear existing profile data files
+       # Clear existing profile data files
     gcda_file = exp_file.replace('.c', '.gcda')
     gcov_file = exp_file.replace('.c', '.gcov')
     if os.path.exists(gcda_file):
         os.remove(gcda_file)
     if os.path.exists(gcov_file):
         os.remove(gcov_file)
+
+     # First compile with coverage options, output to tmp/exp_###
+    gcc_cmd = ["gcc", "-fprofile-arcs", "-ftest-coverage", "-o", exp_file.replace('.c', ''), exp_file]
+    print("  Compiling with gcov:", ' '.join(gcc_cmd))
+    subprocess.run(gcc_cmd, check=True)
     
     # Then run the compiled program
     run_cmd = [exp_file.replace('.c', '')]
     print("  Running experiment:", ' '.join(run_cmd))
-    subprocess.run(run_cmd, check=True)
+    subprocess.run(run_cmd, check=False)
    
     # Finally run gcov to generate coverage data , send to stdout and capture
     gcov_cmd = ["gcov", "-c", "-t", exp_file]
@@ -168,7 +167,7 @@ def run_params(param_string, exp_no):
 
 # Main function
 if __name__ == "__main__":
-    param_file = 'params.txt'
+    param_file = 'solutions.txt'
     # Read command line parameter
     import sys
     args = sys.argv
@@ -180,10 +179,11 @@ if __name__ == "__main__":
    
     gcov = set()
     pcov = set()
-     
+   
     # Read param lines from file
     with open(param_file, 'r') as f:
         param_lines = f.readlines()
+    
     for param_line in param_lines[start:end]:
         g, p = run_params(param_line, cur_exp)
         print("setg:", set(g))
@@ -191,4 +191,4 @@ if __name__ == "__main__":
         pcov = pcov.union(set(p))
         cur_exp += 1
         
-    print_coverage_comparison(list(gcov), list(pcov), f'tmp/exp_{cur_exp-1:03d}.c')
+    print_coverage_comparison(list(gcov), list(pcov), f'tmp/tcas_{cur_exp-1:04d}.c')
