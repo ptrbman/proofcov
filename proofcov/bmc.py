@@ -132,11 +132,6 @@ class BMC():
                 if verbose:
                     print("\tAssert:", l, " => ", asrt)
                 constraints += asrt
-            elif isinstance(l, Assume):
-                asrt = BMC.make_assert(l)
-                if verbose:
-                    print("\tAssume:", l, " => ", asrt)
-                constraints += asrt
             elif isinstance(l, Skip):
                 if verbose:
                     print("\tIgnoring Skip")

@@ -154,27 +154,11 @@ class CParser():
             assert(len(args) == 1)
             expr = CParser.handle_expr(args[0], ssa)
             return Assert(expr, c.coord.line)
-        if name == "assume":
-            args = c.args.exprs
-            assert(len(args) == 1)
-            expr = CParser.handle_expr(args[0], ssa)
-            return Assume(expr, c.coord.line)
         else:
             raise TypeError(f"Unsupported call: {c}")
 
     def handle_string_expr(expr, ssa, track_undef):
         raise NotImplementedError("handle_string_expr is not implemented yet")
-
-    def handle_assume(s, ssa):
-        expr = s.init.value[1:-1]
-        cond = CParser.handle_string_expr(expr, ssa)
-        return Assume(cond, s.coord.line)
-
-    def handle_assert(s, ssa):
-        expr = s.init.value[1:-1]
-        cond = CParser.handle_string_expr(expr, ssa)
-        return Assert(cond, s.coord.line)
-
 
 
     # Returns list of stmts due to compound
@@ -220,28 +204,23 @@ class CParser():
         elif isinstance(s, c_ast.Decl):
             name = s.name
             dectype = s.type.type.names[0]
-            if dectype == '__ASSUME':
-                return [CParser.handle_assume(s, ssa)]
-            elif dectype == '__ASSERT':
-                return [CParser.handle_assert(s, ssa)]
+            assert(dectype == 'int')
+            if isinstance(s.init, c_ast.FuncCall):
+                assert(s.init.name.name == 'nondet_int')
+                return [Declaration(ssa.new(name), None, s.coord.line)]
             else:
-                assert(dectype == 'int')
-                if isinstance(s.init, c_ast.FuncCall):
-                    assert(s.init.name.name == 'nondet_int')
-                    return [Declaration(ssa.new(name), None, s.coord.line)]
+                if isinstance(s.init, c_ast.Constant):
+                    return [Declaration(ssa.add(name), s.init.value, s.coord.line)]
+                elif isinstance(s.init, c_ast.UnaryOp):
+                    assert(s.init.op == '-')
+                    assert(isinstance(s.init.expr, c_ast.Constant))
+                    value = s.init.expr.value
+                    return [Declaration(ssa.add(name), '-' + value, s.coord.line)]
+                elif not s.init:
+                    return [Declaration(ssa.add(name), None, s.coord.line)]
                 else:
-                    if isinstance(s.init, c_ast.Constant):
-                        return [Declaration(ssa.add(name), s.init.value, s.coord.line)]
-                    elif isinstance(s.init, c_ast.UnaryOp):
-                        assert(s.init.op == '-')
-                        assert(isinstance(s.init.expr, c_ast.Constant))
-                        value = s.init.expr.value
-                        return [Declaration(ssa.add(name), '-' + value, s.coord.line)]
-                    elif not s.init:
-                        return [Declaration(ssa.add(name), None, s.coord.line)]
-                    else:
-                        print(s.init)
-                        raise Exception("Mathc on type ... ")
+                    print(s.init)
+                    raise Exception("Mathc on type ... ")
         elif isinstance(s, c_ast.Assignment):
             op = s.op
             assert(op == '=')

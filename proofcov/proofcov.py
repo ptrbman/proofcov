@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from parser import parse_file, test_to_bmc
 from cparser import CParser
 from rich import print
 from rich.panel import Panel
