@@ -48,6 +48,9 @@ argsparser.add_argument('-v', '--verbose', action='store_true', help='Enable ver
 # If --experiment is provided, set experiment mode
 argsparser.add_argument('--experiment', action='store_true', help='Run in experiment mode on tcas')
 
+# If --track-undef is provided, set track_undef to true
+argsparser.add_argument('--track-undef', action='store_true', help='Track undefined behavior in the analysis')
+
 args = argsparser.parse_args()
 
 if args.all:
@@ -108,7 +111,7 @@ if args.verbose:
     print(Panel.fit('\n'.join(lines_with_numbers), title="C code"))
 
 # 2. Convert file to goto code
-ast = CParser.parse_lines(lines)
+ast = CParser.parse_lines(lines) 
 
 # Create CFG
 graph = make_graph(ast)
