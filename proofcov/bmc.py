@@ -63,14 +63,32 @@ class BMC():
             # print_node(lhs, depth+1)
 
     # So if we handle l, we also want to be able to display the coverage
+    
     def handle_phi(l, track_undef):
+        if track_undef:
+            # We add an option of allowing to bypass phinodes and remaining agonstic to which branch was taken
+            # This is useful if the phi is only used to select between two identical values (e.g., both branches assign b = 5)
+            
+            agnostic_line = [f'(assert (! {l.agnostic_bmc(track_undef)[0]} :named phi.agnostic.{l.src_line}.{l.var})) ; agnostic line ' + str(l.src_line)]
+            agnostic_line = [] # Remove to enable agnostic
+            [true_decl, true_cond, a, false_decl, false_cond, b] = l.to_bmc(track_undef)
+            named_true_cond = f'(assert (! {true_cond} :named phi.if.{l.src_line}.{l.var}.cond)) ; if cond line {l.src_line}'
+            
+            named_a = f'(assert (! {a} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}'
+            named_false_cond = f'(assert (! {false_cond} :named phi.else.{l.src_line}.{l.var}.cond)) ; else cond line {l.src_line}'  
+            named_b = f'(assert (! {b} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}'
+            return agnostic_line + [true_decl, named_true_cond, named_a, false_decl, named_false_cond, named_b], ([], l.src_line)
+            # if_line = [f'(assert (! {l.to_bmc(track_undef)[0]} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}', 
+                    #    f'(assert (! {l.to_bmc(track_undef)[1]} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}']
+            return agnostic_line + if_line, ([], l.src_line)
+        else:
         # We add an option of allowing to bypass phinodes and remaining agonstic to which branch was taken
         # This is useful if the phi is only used to select between two identical values (e.g., both branches assign b = 5)
         
-        agnostic_line = [f'(assert (! {l.agnostic_bmc(track_undef)[0]} :named phi.agnostic.{l.src_line}.{l.var})) ; agnostic line ' + str(l.src_line)]
-        agnostic_line = [] # Remove to enable agnostic
-        if_line = [f'(assert (! {l.to_bmc(track_undef)[0]} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}', f'(assert (! {l.to_bmc(track_undef)[1]} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}']
-        return agnostic_line + if_line, ([], l.src_line)
+            agnostic_line = [f'(assert (! {l.agnostic_bmc(track_undef)[0]} :named phi.agnostic.{l.src_line}.{l.var})) ; agnostic line ' + str(l.src_line)]
+            agnostic_line = [] # Remove to enable agnostic
+            if_line = [f'(assert (! {l.to_bmc(track_undef)[0]} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}', f'(assert (! {l.to_bmc(track_undef)[1]} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}']
+            return agnostic_line + if_line, ([], l.src_line)
 
     def gen_formula(goto, ssa, track_undef=False):
         assert(isinstance(goto, Function))

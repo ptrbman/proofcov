@@ -9,6 +9,9 @@ class Expr():
 class UnaryOp(Expr):
     def __init__(self, hs):
         self.hs = hs
+        
+    def get_variables(self):
+        return self.hs.get_variables()
 
 class Neg(UnaryOp):
     def to_ssa(self, uses):
@@ -17,6 +20,7 @@ class Neg(UnaryOp):
     def to_bmc(self, track_undef):
          return "(- 0 " + self.hs.to_bmc(track_undef) + ")" # TODO: Fix unary - SMT
 
+   
     def __str__(self):
         return "-" + str(self.hs)
 
@@ -35,6 +39,9 @@ class BinOp(Expr):
     def __init__(self, lhs, rhs):
         self.lhs = lhs
         self.rhs = rhs
+        
+    def get_variables(self):
+        return self.lhs.get_variables() + self.rhs.get_variables()
 
 class Eq(BinOp):
     op = '=='
@@ -198,6 +205,9 @@ class Var(Expr):
     def to_bmc(self, track_undef):
         return self.name
 
+    def get_variables(self):
+        return [self.name]
+    
     def __str__(self):
         return self.name
 
@@ -208,6 +218,9 @@ class Constant(Expr):
     def to_bmc(self, track_undef):
         return str(self.val)
 
+    def get_variables(self):
+        return []
+    
     def __str__(self):
         return str(self.val)
 
@@ -237,6 +250,7 @@ class Assert(Line):
         self.src_line = src_line
 
     def to_bmc(self, track_undef):
+        # TODO: what about asserts?
         return ["(not " + self.expr.to_bmc(track_undef) + ")"]
 
     def __str__(self):
@@ -261,8 +275,11 @@ class Declaration(Line):
         return "DECL(" + str(self.name) + ", " + str(self.value) + ")"
 
     def to_bmc(self, track_undef):
-        # TODO: here
-        return ["(= " + self.name + " " + self.value + ")"]
+        # TODO: check
+        if track_undef:
+            return ["(and (= " + self.name + " " + self.value + ") (= " + self.name + ".undef 0))"]
+        else:
+            return ["(and (= " + self.name + " " + self.value + "))"]
 
     
 class Assignment(Line):
@@ -276,8 +293,11 @@ class Assignment(Line):
         return self.lhs
 
     def to_bmc(self, track_undef):
-        # TODO: here
-        return ["(= " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"]
+        # TODO: check  
+        if track_undef:
+            return ["(and (= " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ") (= " + self.lhs.to_bmc(track_undef) + ".undef 0))"]
+        else:
+            return ["(and (= " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + "))"]
 
     def __str__(self):
         return str(self.lhs) + " := " + str(self.rhs)
@@ -323,13 +343,49 @@ class Phi(Line):
         self.iffalse = iffalse
         self.src_line = src_line
 
+
+
     def to_bmc(self, track_undef):
-        notcond = "(not " + self.cond.to_bmc(track_undef) + ")"
-        ift = "(= " + self.var + " " + str(self.iftrue) + ")"
-        iff = "(= " + self.var + " " + str(self.iffalse) + ")"
-        a = "(or " + notcond + " " + ift + ")"
-        b = "(or " + self.cond.to_bmc(track_undef) + " " + iff + ")"
-        return [a, b]
+        if track_undef:
+            variables = self.cond.get_variables()
+            print(f'\n\nVariables in phi condition: {variables}')
+            
+            if variables == []:
+                # We can not skip the phi if there are no variables in the condition
+                undef_cond = []  # False
+            else:
+            # If we have one undef variable, the phi can be skipped, including the assigned one
+                undef_cond =  list(map(lambda v : f"(= {v}.undef 1)", variables))
+            undef_cond_true = "(or " + " ".join(undef_cond) + " (= " + self.iftrue + ".undef 1))"
+            undef_cond_false = "(or " + " ".join(undef_cond) + " (= " + self.iffalse + ".undef 1))"
+            
+            # We introduce two variables, one which restricts the true branch, one for the false branch
+            true_var = "phi.if." + str(self.src_line) + "." + self.var + ".true"
+            false_var = "phi.else." + str(self.src_line) + "." + self.var + ".false"
+        
+            decl_true = "(declare-fun " + true_var + " () (Int))" 
+            decl_false = "(declare-fun " + false_var + " () (Int))"
+        
+            # Either true_var holds or undef cond holds 
+            true_cond = "(or (= " + true_var + " 1) " + undef_cond_true + ")"
+            false_cond = "(or (= " + false_var + " 1) " + undef_cond_false + ")"
+        
+            
+            notcond = "(not " + self.cond.to_bmc(track_undef) + ")"
+            ift = "(and (= " + self.var + " " + str(self.iftrue) + ") " + "(= " + self.var + ".undef 0))"
+            iff = "(and (= " + self.var + " " + str(self.iffalse) + ") " + "(= " + self.var + ".undef 0))"
+        
+            a = "(or " + notcond + " " + ift + " (= " + true_var + " 0))"
+            b = "(or " + self.cond.to_bmc(track_undef) + " " + iff + " (= " + false_var + " 0))"
+            return [decl_true, true_cond, a, decl_false, false_cond, b]
+        else:
+            notcond = "(not " + self.cond.to_bmc(track_undef) + ")"
+            ift = "(= " + self.var + " " + str(self.iftrue) + ")"
+            iff = "(= " + self.var + " " + str(self.iffalse) + ")"
+            a = "(or " + notcond + " " + ift + ")"
+            b = "(or " + self.cond.to_bmc(track_undef) + " " + iff + ")"
+            return [a, b]
+
 
     def agnostic_bmc(self, track_undef):
         return ["(or (= " + self.var + " " + str(self.iftrue) + ") (= " + self.var + " " + str(self.iffalse) + "))"]  
@@ -347,4 +403,4 @@ class Function():
         textargs = ', '.join(map(lambda x : x[1] + ' '  + x[0], self.args))
         textbody = '\n'.join(map(lambda x : '\t' + str(x), self.body))
         return "FUN " + self.name + "(" + textargs + "):" + "\n" + textbody
-
+    
