@@ -1,4 +1,5 @@
 TCAS experiment folder
+Due to license restrictions I can not provide you with the tcas source file. Please contact me and I can assist you in how to obtain it.
 
 - Prerequisites
 - Make sure gcov is installed
