@@ -9,7 +9,6 @@ class SSANames():
         self.names = set()
         self.current = {} 
         self.next = {}
-        self.writes = set()
 
     def add(self, name):
         assert(not name in self.names)
@@ -17,9 +16,6 @@ class SSANames():
         self.current[name] = 0
         self.next[name] = 1
         return self.use(name)
-
-    def reset_writes(self):
-        self.writes.clear()
         
     def use(self, name):
         assert(name in self.names)
@@ -30,7 +26,6 @@ class SSANames():
         assert(name in self.names)
         self.current[name] = self.next[name]
         self.next[name] += 1
-        self.writes.add(name)
          
         return self.use(name)
 
@@ -161,20 +156,18 @@ class CParser():
         raise NotImplementedError("handle_string_expr is not implemented yet")
 
 
-    # Returns list of stmts due to compound
+    # Returns list of stmts and set of changed variables
     def handle_stmt(s, ssa):
         if isinstance(s, c_ast.FuncCall):
-            return [CParser.handle_call(s, ssa)]
+            return [CParser.handle_call(s, ssa)], set()
         elif isinstance(s, c_ast.Return):
-            return [Return(CParser.handle_expr(s.expr, ssa), s.coord.line)]
+            return [Return(CParser.handle_expr(s.expr, ssa), s.coord.line)], set()
         elif isinstance(s, c_ast.If):
             cond = CParser.handle_expr(s.cond, ssa, True)
            
             # We save the current SSA using state before branching
             ssa_current_before = ssa.copy_current()
-            ssa.reset_writes()
-            iffalse = CParser.handle_stmt(s.iffalse, ssa)
-            false_writes = ssa.writes.copy()
+            iffalse, false_writes = CParser.handle_stmt(s.iffalse, ssa)
              
             # Now ssa might have increased both current and next
             # we need to restore uses before handling iftrue
@@ -183,40 +176,51 @@ class CParser():
             ssa_false_current = ssa.copy_current() 
             
             ssa.current = ssa_current_before.copy()
-            ssa.reset_writes()
-            iftrue = CParser.handle_stmt(s.iftrue, ssa)
-            true_writes = ssa.writes.copy()
+            iftrue, true_writes = CParser.handle_stmt(s.iftrue, ssa)
             ssa_true_current = ssa.copy_current()
         
             ssa.current = ssa_current_before.copy()
-           
-            return CParser.handle_if(s.coord.line, cond, iftrue, iffalse, ssa, ssa_current_before, ssa_false_current, ssa_true_current, false_writes, true_writes)
+            
+            # But we need to add all writes from both branches to the current
+            return CParser.handle_if(s.coord.line, 
+                                     cond, 
+                                     iftrue, 
+                                     iffalse, 
+                                     ssa, 
+                                     ssa_current_before, 
+                                     ssa_false_current, 
+                                     ssa_true_current, 
+                                     false_writes, 
+                                     true_writes), false_writes.union(true_writes)
            
         elif isinstance(s, c_ast.Compound):
             if not s.block_items:
                 return []
 
             items = []
+            all_changed = set()
             for s in s.block_items:
-                items = items + CParser.handle_stmt(s, ssa)
-            return items
+                ret, changed_vars = CParser.handle_stmt(s, ssa)
+                all_changed = all_changed.union(changed_vars)
+                items = items + ret
+            return items, all_changed
         elif isinstance(s, c_ast.Decl):
             name = s.name
             dectype = s.type.type.names[0]
             assert(dectype == 'int')
             if isinstance(s.init, c_ast.FuncCall):
                 assert(s.init.name.name == 'nondet_int')
-                return [Declaration(ssa.new(name), None, s.coord.line)]
+                return [Declaration(ssa.new(name), None, s.coord.line)], set(name)
             else:
                 if isinstance(s.init, c_ast.Constant):
-                    return [Declaration(ssa.add(name), s.init.value, s.coord.line)]
+                    return [Declaration(ssa.add(name), s.init.value, s.coord.line)], set(name)
                 elif isinstance(s.init, c_ast.UnaryOp):
                     assert(s.init.op == '-')
                     assert(isinstance(s.init.expr, c_ast.Constant))
                     value = s.init.expr.value
-                    return [Declaration(ssa.add(name), '-' + value, s.coord.line)]
+                    return [Declaration(ssa.add(name), '-' + value, s.coord.line)], set(name)
                 elif not s.init:
-                    return [Declaration(ssa.add(name), None, s.coord.line)]
+                    return [Declaration(ssa.add(name), None, s.coord.line)], set(name)
                 else:
                     print(s.init)
                     raise Exception("Mathc on type ... ")
@@ -227,11 +231,11 @@ class CParser():
             assert(isinstance(s.lvalue, c_ast.ID))
             lhs = Var(ssa.inc(s.lvalue.name))
 
-            return [Assignment(lhs, rhs, s.coord.line)]
+            return [Assignment(lhs, rhs, s.coord.line)], set([s.lvalue.name])
         elif isinstance(s, c_ast.For):
             raise NotImplementedError("For loops are not supported yet, please unroll them manually")
         else:
-            return [Skip()]
+            return [Skip()], set()
             raise TypeError(f"Unsupported statement: {s}")
 
     def handle_fundef(node, ssa):
@@ -244,15 +248,19 @@ class CParser():
                 args.append((ssa.add(n), t))
 
         stmts = []
+        changed_vars = set()   
         for s in node.body:
-            ret = CParser.handle_stmt(s, ssa)
+            ret, changed = CParser.handle_stmt(s, ssa)
+            changed_vars = changed_vars.union(changed)
             stmts = stmts + ret
 
-        return Function(name, args, stmts)
+        return Function(name, args, stmts), changed_vars
 
     def handle_node(node, ssa):
         if isinstance(node, c_ast.FuncDef):
-            return CParser.handle_fundef(node, ssa)
+            # Here we throw away the changed variables
+            fun, _ = CParser.handle_fundef(node, ssa)
+            return fun
         elif isinstance(node, c_ast.Typedef):
             #TODO: if we do not care about types this can be ignored
             return None
