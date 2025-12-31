@@ -18,3 +18,5 @@ tcas/regression/tcas_template
 tcas/regression/tcas_orig
 tcas/regression/universe_fixed.txt
 tcas/regression/tcas_sliced
+tcas/regression/tcas_original.c
+tcas/regression/tcas_sliced.c
