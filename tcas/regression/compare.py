@@ -57,6 +57,14 @@ def prepare_original():
     print("Compiling original tcas.c:", ' '.join(compile_cmd))
     subprocess.run(compile_cmd, check=True)
 
+def prepare_sliced():
+    # Compile original tcas.c to tcas_orig
+    compile_cmd = ["gcc", "-o", "tcas_sliced", "tcas_sliced.c"]
+    print("Compiling sliced tcas.c:", ' '.join(compile_cmd))
+    subprocess.run(compile_cmd, check=True)
+
+
+
 def prepare_template():
     # Prepare tcas.c from tcas_template.c
     with open("../proofcov_template.c", "r") as f:
@@ -103,10 +111,11 @@ def prepare_template():
 def main():
     prepare_original()
     prepare_template()
+    prepare_sliced()
     for i, line in enumerate(INPUT_LINES, start=1):
         args = [tok for tok in line.split() if tok]
         
-        rc1, out1, err1 = run_tool("./tcas_template", args)
+        rc1, out1, err1 = run_tool("./tcas_sliced", args)
         print(f'Tcas template output: rc={rc1} out="{out1}" err="{err1}"')
         rc2, out2, err2 = run_tool("./tcas_orig", args)
 
