@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 from goto import *
-import subprocess
+from marco import get_MUSes
 import re
+# Imported as a module, since z3 defines names (And, Or, Not, ...) that clash with goto
+import z3
 
 class BMC():
    
@@ -163,66 +165,34 @@ class BMC():
         return '\n'.join(all) + '\n', annotated_nodes
 
 
-    def run_z3(formula):
-        smtfile = "tmp.smt2"
-        fout = open(smtfile, 'w')
-        fout.write(formula)
-        fout.close()
-        command = ["z3", smtfile]
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = result.stdout.decode('utf-8'), result.stderr.decode('utf-8')
-
-        if stderr:
-            print("STDERR")
-            print(stderr)
-
-        return stdout
+    # Load a formula into a z3 solver, with every named assertion turned into an
+    # assumption literal (see add_assumption_literals).
+    # Returns the solver and the list of assumption literals.
+    def make_solver(formula):
+        solver = z3.Solver()
+        literals = []
+        for a in z3.parse_smt2_string(BMC.add_assumption_literals(formula)):
+            # Only implications guarded by an a_ literal are assumption literals,
+            # any other implication is an ordinary constraint
+            if z3.is_implies(a) and a.arg(0).decl().name().startswith("a_"):
+                literals.append(a.arg(0))
+            solver.add(a)
+        return solver, literals
 
     # True iff SAT
     def check_sat(formula):
+        solver, literals = BMC.make_solver(formula)
+        result = solver.check(literals)
+        if result == z3.unknown:
+            raise RuntimeError("z3 returned unknown: " + solver.reason_unknown())
+        return result == z3.sat
 
-        stdout = BMC.run_z3(formula)
-
-        if "unsat" in stdout:
-            return False
-        elif "sat" in stdout:
-            return True
-        else:
-            print("What is output: ", )
-            print("STDOUT\n", stdout)
-            assert(False)
-
-    def get_model(formula):
-        stdout = BMC.run_z3(formula + "\n(get-model)")
-
+    # Returns a (minimized) unsat core as a set of line numbers
     def get_core(formula):
-        stdout = BMC.run_z3("(set-option :produce-unsat-cores true)\n(set-option :smt.core.minimize true)\n" + formula + "\n(get-unsat-core)")
-        p = r"line(\d+)\.(\d+)"
-        r = re.findall(p, stdout)
-        lines = set()
-        for m in r:
-            lines.add(int(m[0]))
-
-        p = r"phi\.(\w*)\.(\d+)"
-        r = re.findall(p, stdout)
-        for m in r:
-            if m[0] == "agnostic":
-                ()
-            elif m[0] == "if":
-                lines.add(int(m[1]))
-            elif m[0] == "else":
-                lines.add(int(m[1]))
-            else:
-                print("Unknown phi core part:", m)
-                assert(False)
-
-
-        p = r"name_subexpr_(\d+)_(\d+)"
-        r = re.findall(p, stdout)
-        for m in r:
-            lines.add(int(m[0])) # We throwaway the second number, as we only care about the line number
-            # lines.add((int(m[0]), int(m[1])))
-        return lines
+        solver, literals = BMC.make_solver(formula)
+        solver.set("core.minimize", True)
+        assert solver.check(literals) == z3.unsat
+        return BMC.core_to_lines([c.decl().name() for c in solver.unsat_core()])
 
     # Convert every named assertion such as:
     #     (assert (! (= x.1 1) :named line5.0)) ; line 5
@@ -280,7 +250,5 @@ class BMC():
     # Enumerate all minimal unsat cores, each as a set of line numbers.
     # Returns an empty list if the formula is SAT.
     def get_all_cores(formula):
-        # Imported here so the z3 Python package is only needed when enumerating
-        from marco import get_MUSes
         muses = get_MUSes(BMC.add_assumption_literals(formula))
         return [BMC.core_to_lines(mus) for mus in muses]
