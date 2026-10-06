@@ -223,3 +223,64 @@ class BMC():
             lines.add(int(m[0])) # We throwaway the second number, as we only care about the line number
             # lines.add((int(m[0]), int(m[1])))
         return lines
+
+    # Convert every named assertion such as:
+    #     (assert (! (= x.1 1) :named line5.0)) ; line 5
+    # to an assumption literal:
+    #     (declare-fun a_line5.0 () Bool)
+    #     (assert (=> a_line5.0 (= x.1 1)))
+    # that can later be included/excluded from check-sat-assuming.
+    def add_assumption_literals(formula):
+        lines = formula.strip().splitlines()
+        new_lines = []
+        assumption_literals = []
+
+        # Match all named assertions
+        pattern = re.compile(r"\(assert\s+\(!\s*(?P<body>.*)\s*:named\s+(?P<name>[^\s\)]+)\s*\)\)")
+
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("(check-sat"):
+                continue
+
+            m = pattern.search(line)
+            if m:
+                body = m.group("body").strip()
+                name = m.group("name").strip()
+                a_name = f"a_{name}"
+
+                new_lines.append(f"(declare-fun {a_name} () Bool)")
+                new_lines.append(f"(assert (=> {a_name} {body}))")
+
+                # Only include non-agnostic literals in the assumption set
+                if not name.startswith("phi.agnostic"):
+                    assumption_literals.append(a_name)
+            else:
+                new_lines.append(line)
+
+        if assumption_literals:
+            new_lines.append(f"(check-sat-assuming ({' '.join(assumption_literals)}))")
+
+        return "\n".join(new_lines)
+
+    # Takes an unsat core (list of assumption literal names) and converts it to line numbers
+    def core_to_lines(core):
+        lines = set()
+        for c in core:
+            m = re.match(r"a_line(\d+)\.\d+", c)
+            if m:
+                lines.add(int(m.group(1)))
+                continue
+
+            m = re.match(r"a_phi\.(\w+)\.(\d+)\.", c)
+            if m:
+                lines.add(int(m.group(2)))
+        return lines
+
+    # Enumerate all minimal unsat cores, each as a set of line numbers.
+    # Returns an empty list if the formula is SAT.
+    def get_all_cores(formula):
+        # Imported here so the z3 Python package is only needed when enumerating
+        from marco import get_MUSes
+        muses = get_MUSes(BMC.add_assumption_literals(formula))
+        return [BMC.core_to_lines(mus) for mus in muses]
