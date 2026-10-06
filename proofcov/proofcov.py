@@ -64,7 +64,7 @@ file_path = args.input_file
 dirpath, filename = split_path(file_path)
 if not dirpath:
     dirpath = '.'
-print("\[proofcov] Opening file", dirpath + "/" + filename)
+print(r"\[proofcov] Opening file", dirpath + "/" + filename)
 
 if not os.path.exists(dirpath + '/' + filename):
     print(f"[red]Error: File '{filename}' does not exist in directory '{dirpath}'[/red]")
