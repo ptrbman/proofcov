@@ -31,6 +31,15 @@ EXPECTED = {
     # Empty blocks {} in an if
     "empty_else.c": [{4, 6, 7, 10}],
     "empty_then.c": [{4, 6, 8, 10}],
+    # Numbers used as truth values (if (a), !a, a && b, assert(x)) mean != 0, as in C
+    "int_condition.c": [{4, 6, 7, 9}],
+    "int_logic.c": [{5, 6, 8, 9, 11}],
+    "int_assert.c": [{3, 4}],
+}
+
+# Programs proofcov should reject, with (part of) the expected error message
+UNSUPPORTED = {
+    "condition_as_number.c": "Unsupported: condition used as a number at line 5",
 }
 
 # Expected coverage ("covered/total") reported by --line and --branch.
@@ -44,6 +53,7 @@ LINE_COVERAGE = {
     "no_branches.c": "3/3",
     "empty_else.c": "4/5",
     "empty_then.c": "4/5",
+    "int_condition.c": "4/5",
 }
 
 BRANCH_COVERAGE = {
@@ -53,6 +63,7 @@ BRANCH_COVERAGE = {
     # An empty branch is not counted, like a missing else
     "empty_else.c": "1/1",
     "empty_then.c": "1/1",
+    "int_condition.c": "1/1",
 }
 
 
@@ -119,6 +130,21 @@ def check_coverage(program, kind, expected):
     return ok
 
 
+def check_unsupported(program, message):
+    result, _ = run_proofcov(program, [])
+    ok = result.returncode != 0 and message in result.stderr
+
+    if ok:
+        print(f"PASS  {program} (unsupported)")
+    else:
+        print(f"FAIL  {program} (unsupported): expected an error containing '{message}'")
+        print(f"      got exit code {result.returncode}")
+        if result.stderr:
+            print("      stderr:")
+            print("\n".join("        " + l for l in result.stderr.splitlines()))
+    return ok
+
+
 def main():
     failures = 0
     for program, expected in EXPECTED.items():
@@ -131,8 +157,11 @@ def main():
     for program, expected in BRANCH_COVERAGE.items():
         if not check_coverage(program, "Branch", expected):
             failures += 1
+    for program, message in UNSUPPORTED.items():
+        if not check_unsupported(program, message):
+            failures += 1
 
-    total = 2 * len(EXPECTED) + len(LINE_COVERAGE) + len(BRANCH_COVERAGE)
+    total = 2 * len(EXPECTED) + len(LINE_COVERAGE) + len(BRANCH_COVERAGE) + len(UNSUPPORTED)
     print(f"\n{total - failures}/{total} tests passed")
     sys.exit(1 if failures else 0)
 

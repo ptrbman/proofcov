@@ -89,10 +89,30 @@ class CParser():
             lines.append(Phi(ssa.inc(v), cond, ift, iff, src_line))
         return lines
 
+    # GOTO expressions which are truth values
+    BOOLEAN = (Eq, Ne, Gt, Ge, Lt, Le, And, Or, Not)
+
+    # C allows a number as a truth value (if (x), !x, x && y), meaning x != 0.
+    # Conditions in the GOTO language are always truth values, so the comparison is made explicit.
+    def as_condition(e):
+        if isinstance(e, CParser.BOOLEAN):
+            return e
+        return Ne(e, Constant('0'))
+
+    # The other direction, a truth value used as a number (e.g. x = (a > b);), is not supported
+    def as_number(e, c_expr):
+        if isinstance(e, CParser.BOOLEAN):
+            raise TypeError(f"Unsupported: condition used as a number at line {c_expr.coord.line}")
+        return e
+
     def handle_expr(e, ssa):
         if isinstance(e, c_ast.BinaryOp):
             lhs = CParser.handle_expr(e.left, ssa)
             rhs = CParser.handle_expr(e.right, ssa)
+            if e.op in ('&&', '||'):
+                lhs, rhs = CParser.as_condition(lhs), CParser.as_condition(rhs)
+            else:
+                lhs, rhs = CParser.as_number(lhs, e.left), CParser.as_number(rhs, e.right)
 
             if e.op == '==':
                 return Eq(lhs, rhs)
@@ -129,10 +149,10 @@ class CParser():
             return Constant(e.value)
         elif isinstance(e, c_ast.UnaryOp):
             if e.op == '-':
-                hs = CParser.handle_expr(e.expr, ssa)
+                hs = CParser.as_number(CParser.handle_expr(e.expr, ssa), e.expr)
                 return Neg(hs)
             elif e.op == '!':
-                hs = CParser.handle_expr(e.expr, ssa)
+                hs = CParser.as_condition(CParser.handle_expr(e.expr, ssa))
                 return Not(hs)
             else:
                raise TypeError(f"Unsupported UnaryOp: {e.op}")
@@ -144,7 +164,7 @@ class CParser():
         if name == "assert":
             args = c.args.exprs
             assert(len(args) == 1)
-            expr = CParser.handle_expr(args[0], ssa)
+            expr = CParser.as_condition(CParser.handle_expr(args[0], ssa))
             return Assert(expr, c.coord.line)
         else:
             raise TypeError(f"Unsupported call: {c}")
@@ -154,9 +174,9 @@ class CParser():
         if isinstance(s, c_ast.FuncCall):
             return [CParser.handle_call(s, ssa)], set()
         elif isinstance(s, c_ast.Return):
-            return [Return(CParser.handle_expr(s.expr, ssa), s.coord.line)], set()
+            return [Return(CParser.as_number(CParser.handle_expr(s.expr, ssa), s.expr), s.coord.line)], set()
         elif isinstance(s, c_ast.If):
-            cond = CParser.handle_expr(s.cond, ssa)
+            cond = CParser.as_condition(CParser.handle_expr(s.cond, ssa))
            
             # We save the current SSA using state before branching
             ssa_current_before = ssa.copy_current()
@@ -220,7 +240,7 @@ class CParser():
         elif isinstance(s, c_ast.Assignment):
             op = s.op
             assert(op == '=')
-            rhs = CParser.handle_expr(s.rvalue, ssa)
+            rhs = CParser.as_number(CParser.handle_expr(s.rvalue, ssa), s.rvalue)
             assert(isinstance(s.lvalue, c_ast.ID))
             lhs = Var(ssa.inc(s.lvalue.name))
 
