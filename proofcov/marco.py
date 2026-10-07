@@ -82,7 +82,8 @@ class SubsetSolver:
 		assumptions = parse_smt2_string(formula)
 		
 		for a in assumptions:
-			if is_implies(a):
+			# Only implications guarded by an a_ literal are assumptions (same rule as BMC.make_solver)
+			if is_implies(a) and a.arg(0).decl().name().startswith("a_"):
 				# An assumption looks like this: Implies(a_line5.0, x.1 == 1)
 				# Put the first argument in the guards list, put the second in the bodies list
 				self.guards.append(a.arg(0))
