@@ -23,6 +23,10 @@ EXPECTED = {
     "two_proofs.c": [{5, 7, 8, 13, 14, 19}, {13, 14, 16, 19}],
     "failing_assert.c": None,
     "initialized_decls.c": [{2, 4, 5, 7}],
+    # Several statements on one line: the line is covered if any of them is in the core
+    "same_line_assignments.c": [{4, 5}],
+    "same_line_declarations.c": [{2, 3}],
+    "same_line_if.c": [{4, 6, 7}],
 }
 
 # Expected line coverage ("covered/total") reported by --line.
