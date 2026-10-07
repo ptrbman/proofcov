@@ -28,6 +28,12 @@ def split_path(file_path):
     dirpath, filename = os.path.split(file_path)
     return dirpath, filename
 
+# Format e.g. "Line coverage: 3/4 (75.00%)", or "Branch coverage: 0/0 (no branches)" when there is nothing to cover
+def format_coverage(kind, covered, total, unit):
+    if total == 0:
+        return f"{kind} coverage: 0/0 (no {unit})"
+    return f"{kind} coverage: {covered}/{total} ({(covered/total)*100:.2f}%)"
+
 # Lets use argparse for command line arguments
 import argparse
 
@@ -203,7 +209,7 @@ for core_id, result in enumerate(cores, start=1):
         statement_lines = {n.line_number for n in graph.all_nodes()}
         total_lines = len(statement_lines)
         covered_lines = len(statement_lines.intersection(covered))
-        print(f"Line coverage: {covered_lines}/{total_lines} ({(covered_lines/total_lines)*100:.2f}%)")
+        print(format_coverage("Line", covered_lines, total_lines, "lines"))
         
         if args.graph:
             suffix = f"_line_core{core_id}.png" if args.enumerate_cores else "_line.png"
@@ -233,11 +239,11 @@ for core_id, result in enumerate(cores, start=1):
             if covered:
                 covered_branches += 1
         # Display branch coverage as a fraction and percentage
-        print(f"Branch coverage: {covered_branches}/{total_branches} ({(covered_branches/total_branches)*100:.2f}%)")
+        print(format_coverage("Branch", covered_branches, total_branches, "branches"))
         
         
     if args.all and args.verbose:
         # Print summary of both coverage
         print(Panel.fit("[yellow]Coverage summary:[/yellow]"))
-        print(f"Line coverage: {covered_lines}/{total_lines} ({(covered_lines/total_lines)*100:.2f}%)")
-        print(f"Branch coverage: {covered_branches}/{total_branches} ({(covered_branches/total_branches)*100:.2f}%)")
+        print(format_coverage("Line", covered_lines, total_lines, "lines"))
+        print(format_coverage("Branch", covered_branches, total_branches, "branches"))

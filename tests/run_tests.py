@@ -27,9 +27,10 @@ EXPECTED = {
     "same_line_assignments.c": [{4, 5}],
     "same_line_declarations.c": [{2, 3}],
     "same_line_if.c": [{4, 6, 7}],
+    "no_branches.c": [{4, 5, 6}],
 }
 
-# Expected line coverage ("covered/total") reported by --line.
+# Expected coverage ("covered/total") reported by --line and --branch.
 # Only for programs with a single minimal core, so the result does not depend on the core z3 picks.
 LINE_COVERAGE = {
     "initialized_decls.c": "4/5",
@@ -37,6 +38,13 @@ LINE_COVERAGE = {
     "same_line_assignments.c": "2/2",
     "same_line_declarations.c": "2/2",
     "same_line_if.c": "3/4",
+    "no_branches.c": "3/3",
+}
+
+BRANCH_COVERAGE = {
+    "initialized_decls.c": "1/1",
+    # No if statements: reported as 0/0 instead of dividing by zero
+    "no_branches.c": "0/0",
 }
 
 
@@ -85,16 +93,17 @@ def check(program, expected, extra_args):
     return ok
 
 
-def check_line_coverage(program, expected):
-    result, _ = run_proofcov(program, ["--line"], experiment=False)
-    m = re.search(r"Line coverage: (\d+/\d+)", result.stdout)
+# kind is "Line" or "Branch"
+def check_coverage(program, kind, expected):
+    result, _ = run_proofcov(program, ["--" + kind.lower()], experiment=False)
+    m = re.search(kind + r" coverage: (\d+/\d+)", result.stdout)
     got = m.group(1) if m else None
     ok = result.returncode == 0 and got == expected
 
     if ok:
-        print(f"PASS  {program} (line coverage)")
+        print(f"PASS  {program} ({kind.lower()} coverage)")
     else:
-        print(f"FAIL  {program} (line coverage): expected {expected}")
+        print(f"FAIL  {program} ({kind.lower()} coverage): expected {expected}")
         print(f"      got {got}, exit code {result.returncode}")
         if result.stderr:
             print("      stderr:")
@@ -109,10 +118,13 @@ def main():
             if not check(program, expected, extra_args):
                 failures += 1
     for program, expected in LINE_COVERAGE.items():
-        if not check_line_coverage(program, expected):
+        if not check_coverage(program, "Line", expected):
+            failures += 1
+    for program, expected in BRANCH_COVERAGE.items():
+        if not check_coverage(program, "Branch", expected):
             failures += 1
 
-    total = 2 * len(EXPECTED) + len(LINE_COVERAGE)
+    total = 2 * len(EXPECTED) + len(LINE_COVERAGE) + len(BRANCH_COVERAGE)
     print(f"\n{total - failures}/{total} tests passed")
     sys.exit(1 if failures else 0)
 
