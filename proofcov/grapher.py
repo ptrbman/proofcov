@@ -116,8 +116,8 @@ def astvalue_to_string(astvalue):
         right = astvalue_to_string(astvalue.right)
         return f"({left} {astvalue.op} {right})"
     elif isinstance(astvalue, c_ast.UnaryOp):
-        assert(astvalue.op == '!')
-        return f"!{astvalue_to_string(astvalue.expr)}"
+        assert(astvalue.op in ('!', '-'))
+        return f"{astvalue.op}{astvalue_to_string(astvalue.expr)}"
     else:
         raise Exception("Unsupported AST value type in astvalue_to_string:", type(astvalue))
     
@@ -148,7 +148,13 @@ def make_graph(ast) -> Graph:
                 
         return cur_g
     elif isinstance(ast, c_ast.Decl):
-        return None
+        # A declaration with a value (int a = 0;) is an assignment the proof can depend on,
+        # so it is a line. Without a value (int a;) or with nondet_int() it is not.
+        if ast.init is None or isinstance(ast.init, c_ast.FuncCall):
+            return None
+        s = f'{ast.name} = {astvalue_to_string(ast.init)}'
+        n = Node(line_number=ast.coord.line, text=s)
+        return Graph(n, n)
     elif isinstance(ast, c_ast.If):
         s = f'if ({astvalue_to_string(ast.cond)})'
         join_node = Node(line_number=None, text="JOIN", is_join=True)

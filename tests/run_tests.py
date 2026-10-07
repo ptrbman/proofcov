@@ -9,6 +9,7 @@
 #   python tests/run_tests.py
 
 import os
+import re
 import subprocess
 import sys
 
@@ -21,16 +22,23 @@ EXPECTED = {
     "single_if.c": [{3, 5, 9}, {5, 6, 9}],
     "two_proofs.c": [{5, 7, 8, 13, 14, 19}, {13, 14, 16, 19}],
     "failing_assert.c": None,
+    "initialized_decls.c": [{2, 4, 5, 7}],
+}
+
+# Expected line coverage ("covered/total") reported by --line.
+# Only for programs with a single minimal core, so the result does not depend on the core z3 picks.
+LINE_COVERAGE = {
+    "initialized_decls.c": "4/5",
 }
 
 
-def run_proofcov(program, extra_args):
+def run_proofcov(program, extra_args, experiment=True):
     path = os.path.join(TESTS_DIR, "programs", program)
     # FORCE_COLOR makes rich print color codes even into a pipe, which breaks parsing
     env = dict(os.environ)
     env.pop("FORCE_COLOR", None)
     result = subprocess.run(
-        [sys.executable, PROOFCOV, path, "--experiment"] + extra_args,
+        [sys.executable, PROOFCOV, path] + (["--experiment"] if experiment else []) + extra_args,
         capture_output=True,
         text=True,
         env=env,
@@ -69,14 +77,34 @@ def check(program, expected, extra_args):
     return ok
 
 
+def check_line_coverage(program, expected):
+    result, _ = run_proofcov(program, ["--line"], experiment=False)
+    m = re.search(r"Line coverage: (\d+/\d+)", result.stdout)
+    got = m.group(1) if m else None
+    ok = result.returncode == 0 and got == expected
+
+    if ok:
+        print(f"PASS  {program} (line coverage)")
+    else:
+        print(f"FAIL  {program} (line coverage): expected {expected}")
+        print(f"      got {got}, exit code {result.returncode}")
+        if result.stderr:
+            print("      stderr:")
+            print("\n".join("        " + l for l in result.stderr.splitlines()))
+    return ok
+
+
 def main():
     failures = 0
     for program, expected in EXPECTED.items():
         for extra_args in ([], ["--enumerate-cores"]):
             if not check(program, expected, extra_args):
                 failures += 1
+    for program, expected in LINE_COVERAGE.items():
+        if not check_line_coverage(program, expected):
+            failures += 1
 
-    total = 2 * len(EXPECTED)
+    total = 2 * len(EXPECTED) + len(LINE_COVERAGE)
     print(f"\n{total - failures}/{total} tests passed")
     sys.exit(1 if failures else 0)
 
