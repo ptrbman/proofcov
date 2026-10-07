@@ -33,6 +33,10 @@ EXPECTED = {
 # Only for programs with a single minimal core, so the result does not depend on the core z3 picks.
 LINE_COVERAGE = {
     "initialized_decls.c": "4/5",
+    # Several statements on one line count as one line
+    "same_line_assignments.c": "2/2",
+    "same_line_declarations.c": "2/2",
+    "same_line_if.c": "3/4",
 }
 
 

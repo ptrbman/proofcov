@@ -198,9 +198,11 @@ for core_id, result in enumerate(cores, start=1):
                 if args.verbose:    
                     console.print(f'[white]{i:03d}:[red]{line}')
         # Display line coverage as a fraction and percentage
-        # Retrieve number of lines from graph
-        total_lines = len(graph.all_nodes())
-        covered_lines = len(covered)
+        # Lines with at least one statement (graph node), and those of them covered by the core.
+        # Several statements on one line count as one line.
+        statement_lines = {n.line_number for n in graph.all_nodes()}
+        total_lines = len(statement_lines)
+        covered_lines = len(statement_lines.intersection(covered))
         print(f"Line coverage: {covered_lines}/{total_lines} ({(covered_lines/total_lines)*100:.2f}%)")
         
         if args.graph:
