@@ -7,8 +7,10 @@ import z3
 
 class BMC():
    
-    def make_assert(line, track_undef):
-        return ["(assert (! " + b + " :named line" + str(line.src_line) + "." + str(i) + ")) ; line " + str(line.src_line) for i, b in enumerate(line.to_bmc(track_undef))]
+    # Constraint i of statement number k on a source line is named line<line>_<k>.<i>
+    # (e.g. line4_0.0 and line4_1.0 for a = 1; b = 2; on line 4)
+    def make_assert(line, k, track_undef):
+        return ["(assert (! " + b + " :named line" + str(line.src_line) + "_" + str(k) + "." + str(i) + ")) ; line " + str(line.src_line) for i, b in enumerate(line.to_bmc(track_undef))]
 
     def handle_phi(l, track_undef):
         if track_undef:
@@ -40,13 +42,21 @@ class BMC():
                     header.append("(declare-fun " + n + ".undef () (Int))")
 
         constraints = []
+
+        # Number the statements on each source line, so their constraint names are unique
+        statements_on_line = {}
+        def assert_statement(l):
+            k = statements_on_line.get(l.src_line, 0)
+            statements_on_line[l.src_line] = k + 1
+            return BMC.make_assert(l, k, track_undef)
+
         verbose = False
         for l in lines:
             if verbose:
                 print("¬", l)
             if isinstance(l, Declaration):
                 if l.value:
-                    constraints += BMC.make_assert(l, track_undef)
+                    constraints += assert_statement(l)
                 else:
                     if verbose:
                         print("\tIgnoring declaration with no value/nondet")
@@ -54,7 +64,7 @@ class BMC():
                 if verbose:
                     print("\tIgnoring JumpIf")
             elif isinstance(l, Assignment):
-                asrt = BMC.make_assert(l, track_undef)
+                asrt = assert_statement(l)
                 if verbose:
                     print("\tAssignment:", l, "=>", asrt)
                 constraints += asrt
@@ -69,7 +79,7 @@ class BMC():
                 if verbose:
                     print("\tPhi:", l, "=>", asrt)
             elif isinstance(l, Assert):
-                asrt = BMC.make_assert(l, track_undef)
+                asrt = assert_statement(l)
                 if verbose:
                     print("\tAssert:", l, " => ", asrt)
                 constraints += asrt
@@ -162,7 +172,7 @@ class BMC():
     def core_to_lines(core):
         lines = set()
         for c in core:
-            m = re.match(r"a_line(\d+)\.\d+", c)
+            m = re.match(r"a_line(\d+)_\d+\.\d+", c)
             if m:
                 lines.add(int(m.group(1)))
                 continue
