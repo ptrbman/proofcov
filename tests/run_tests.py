@@ -26,10 +26,14 @@ EXPECTED = {
 
 def run_proofcov(program, extra_args):
     path = os.path.join(TESTS_DIR, "programs", program)
+    # FORCE_COLOR makes rich print color codes even into a pipe, which breaks parsing
+    env = dict(os.environ)
+    env.pop("FORCE_COLOR", None)
     result = subprocess.run(
         [sys.executable, PROOFCOV, path, "--experiment"] + extra_args,
         capture_output=True,
         text=True,
+        env=env,
     )
     cores = []
     for line in result.stdout.splitlines():
