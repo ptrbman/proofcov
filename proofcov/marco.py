@@ -54,10 +54,6 @@ between them:
 
 from z3 import *
 
-def main():
-	return
-	
-
 def get_MUSes(formula):
 	csolver = SubsetSolver(formula)
 	msolver = MapSolver(n=csolver.n)
@@ -70,10 +66,6 @@ def get_MUSes(formula):
 
 		# For every Z3 literal, convert it to its string name and place it in the list
 		mus_names = [lit.decl().name() for lit in lits]
-
-		# MUSes containing agnostic conditions are skipped
-		if any("agnostic" in name for name in mus_names):
-			continue
 
 		print("MUS: ", mus_names)
 		muses.append(mus_names)
@@ -213,5 +205,4 @@ def enumerate_sets(csolver, map):
 			yield ("MUS", csolver.to_literals(MUS))
 			map.block_up(MUS)
 
-main()
 

@@ -36,9 +36,6 @@ class SSANames():
         assert(name in self.names)
         return self.next[name]
 
-    def extract_name(name):
-        return name.split(".")[0]
-
     def __str__(self):
         return '\n'.join(k + ": " + str(self.current[k]) for k in self.names)
 
@@ -92,10 +89,10 @@ class CParser():
             lines.append(Phi(ssa.inc(v), cond, ift, iff, src_line))
         return lines
 
-    def handle_expr(e, ssa, cover=False):
+    def handle_expr(e, ssa):
         if isinstance(e, c_ast.BinaryOp):
-            lhs = CParser.handle_expr(e.left, ssa, cover)
-            rhs = CParser.handle_expr(e.right, ssa, cover)
+            lhs = CParser.handle_expr(e.left, ssa)
+            rhs = CParser.handle_expr(e.right, ssa)
 
             if e.op == '==':
                 return Eq(lhs, rhs)
@@ -132,10 +129,10 @@ class CParser():
             return Constant(e.value)
         elif isinstance(e, c_ast.UnaryOp):
             if e.op == '-':
-                hs = CParser.handle_expr(e.expr, ssa, cover)
+                hs = CParser.handle_expr(e.expr, ssa)
                 return Neg(hs)
             elif e.op == '!':
-                hs = CParser.handle_expr(e.expr, ssa, cover)
+                hs = CParser.handle_expr(e.expr, ssa)
                 return Not(hs)
             else:
                raise TypeError(f"Unsupported UnaryOp: {e.op}")
@@ -152,10 +149,6 @@ class CParser():
         else:
             raise TypeError(f"Unsupported call: {c}")
 
-    def handle_string_expr(expr, ssa):
-        raise NotImplementedError("handle_string_expr is not implemented yet")
-
-
     # Returns list of stmts and set of changed variables
     def handle_stmt(s, ssa):
         if isinstance(s, c_ast.FuncCall):
@@ -163,7 +156,7 @@ class CParser():
         elif isinstance(s, c_ast.Return):
             return [Return(CParser.handle_expr(s.expr, ssa), s.coord.line)], set()
         elif isinstance(s, c_ast.If):
-            cond = CParser.handle_expr(s.cond, ssa, True)
+            cond = CParser.handle_expr(s.cond, ssa)
            
             # We save the current SSA using state before branching
             ssa_current_before = ssa.copy_current()

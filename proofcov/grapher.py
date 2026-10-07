@@ -25,12 +25,6 @@ class Node:
         self.is_join = is_join
         self.target_join = target_join  # for branches, points to the join node
 
-    def print_recursive(self, indent):
-        print(" " * indent + str(self))
-        for child in self.children:
-            print("\t", self.text)
-            child.print_recursive(indent + 2)
-
     def draw_string(self):
         if self.line_number is not None:
             return f"{self.line_number}: {self.text}"
@@ -77,8 +71,6 @@ class Graph:
         branch_nodes = [n for n in all_nodes if n.target_join is not None]
         return branch_nodes
     
-    def print(self):
-        self.top_node.print_recursive(0)
         
     def draw(self, filename, marked_lines=None):
         dot = Digraph(comment="Control Flow Graph", format=filename.split('.')[-1])

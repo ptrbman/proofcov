@@ -7,90 +7,21 @@ import z3
 
 class BMC():
    
-    subexpr_count = {}
-
     def make_assert(line, track_undef):
         return ["(assert (! " + b + " :named line" + str(line.src_line) + "." + str(i) + ")) ; line " + str(line.src_line) for i, b in enumerate(line.to_bmc(track_undef))]
 
-
-    # This is used to track the usage of subexpressions in if-statements (e.g., in if (a && b) we can cover only a or b).
-    # Returns name, constraints, number of created exprs, annotated AST - name of top-level subexpr and constraints required
-    def create_subexprs(l, line, count=0):
-        # print("-->create(" + str(l) + ")")
-        if isinstance(l, BinOp):
-            lhs_node, lhs_constraints, lhs_created, annotated_lhs = BMC.create_subexprs(l.lhs, line, count)
-            rhs_node, rhs_constraints, rhs_created, annotated_rhs = BMC.create_subexprs(l.rhs, line, count + lhs_created)
-            # print("Binop:", l)
-            node_name = "subexpr_" + str(line) + "_" + str(count + lhs_created + rhs_created)
-            if node_name in BMC.subexpr_count:
-                BMC.subexpr_count[node_name] += 1
-                node_name = node_name + "x" + str(BMC.subexpr_count[node_name])
-            else:
-                BMC.subexpr_count[node_name] = 0
-            l.lhs = lhs_node
-            l.rhs = rhs_node
-            #TODO: only Bool types
-            decl = "(declare-fun " + node_name + " () (Bool))"
-            constraint = "(assert (! (= " + node_name + " " + l.to_bmc() + ") :named name_" + node_name + "))"
-
-            l.lhs = annotated_lhs
-            l.rhs = annotated_rhs
-
-            annotated = l
-            annotated.subexpr = node_name
-            # print("\t", node_name, constraint)
-            return Var(node_name), lhs_constraints + rhs_constraints + [decl, constraint], lhs_created + rhs_created + 1, annotated
-        elif isinstance(l, Var):
-            l.subexpr = None
-            return l, [], 0, l
-        elif isinstance(l, Constant):
-            l.subexpr = None
-            return l, [], 0, l
-        else:
-            assert(False)
-
-    def print_node(n, depth=0):
-        if isinstance(n, BinOp):
-            print('\t'*depth, n.op, "(", n.subexpr, ")")
-            BMC.print_node(n.lhs, depth+1)
-            BMC.print_node(n.rhs, depth+1)
-        elif isinstance(n, Var):
-            print('\t'*depth, n)
-        elif isinstance(n, Constant):
-            print('\t'*depth, n)
-        else:
-            assert(False)
-
-        # if n.lhs:
-            # print_node(lhs, depth+1)
-
-    # So if we handle l, we also want to be able to display the coverage
-    
     def handle_phi(l, track_undef):
         if track_undef:
-            # We add an option of allowing to bypass phinodes and remaining agonstic to which branch was taken
-            # This is useful if the phi is only used to select between two identical values (e.g., both branches assign b = 5)
-            
-            agnostic_line = [f'(assert (! {l.agnostic_bmc(track_undef)[0]} :named phi.agnostic.{l.src_line}.{l.var})) ; agnostic line ' + str(l.src_line)]
-            agnostic_line = [] # Remove to enable agnostic
             [true_decl, true_cond, a, false_decl, false_cond, b] = l.to_bmc(track_undef)
             named_true_cond = f'(assert (! {true_cond} :named phi.if.{l.src_line}.{l.var}.cond)) ; if cond line {l.src_line}'
             
             named_a = f'(assert (! {a} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}'
             named_false_cond = f'(assert (! {false_cond} :named phi.else.{l.src_line}.{l.var}.cond)) ; else cond line {l.src_line}'  
             named_b = f'(assert (! {b} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}'
-            return agnostic_line + [true_decl, named_true_cond, named_a, false_decl, named_false_cond, named_b], ([], l.src_line)
-            # if_line = [f'(assert (! {l.to_bmc(track_undef)[0]} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}', 
-                    #    f'(assert (! {l.to_bmc(track_undef)[1]} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}']
-            return agnostic_line + if_line, ([], l.src_line)
+            return [true_decl, named_true_cond, named_a, false_decl, named_false_cond, named_b]
         else:
-        # We add an option of allowing to bypass phinodes and remaining agonstic to which branch was taken
-        # This is useful if the phi is only used to select between two identical values (e.g., both branches assign b = 5)
-        
-            agnostic_line = [f'(assert (! {l.agnostic_bmc(track_undef)[0]} :named phi.agnostic.{l.src_line}.{l.var})) ; agnostic line ' + str(l.src_line)]
-            agnostic_line = [] # Remove to enable agnostic
             if_line = [f'(assert (! {l.to_bmc(track_undef)[0]} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}', f'(assert (! {l.to_bmc(track_undef)[1]} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}']
-            return agnostic_line + if_line, ([], l.src_line)
+            return if_line
 
     def gen_formula(goto, ssa, track_undef=False):
         assert(isinstance(goto, Function))
@@ -109,7 +40,6 @@ class BMC():
                     header.append("(declare-fun " + n + ".undef () (Int))")
 
         constraints = []
-        annotated_nodes = []
         verbose = False
         for l in lines:
             if verbose:
@@ -135,9 +65,7 @@ class BMC():
                 if verbose:
                     print("\tIgnoring Label")
             elif isinstance(l, Phi):
-                cons, annotated_node = BMC.handle_phi(l, track_undef)
-                constraints += cons
-                annotated_nodes.append(annotated_node)
+                constraints += BMC.handle_phi(l, track_undef)
                 if verbose:
                     print("\tPhi:", l, "=>", asrt)
             elif isinstance(l, Assert):
@@ -162,7 +90,7 @@ class BMC():
         for f in footer:
             all.append(f)
 
-        return '\n'.join(all) + '\n', annotated_nodes
+        return '\n'.join(all) + '\n'
 
 
     # Load a formula into a z3 solver, with every named assertion turned into an
@@ -221,10 +149,7 @@ class BMC():
 
                 new_lines.append(f"(declare-fun {a_name} () Bool)")
                 new_lines.append(f"(assert (=> {a_name} {body}))")
-
-                # Only include non-agnostic literals in the assumption set
-                if not name.startswith("phi.agnostic"):
-                    assumption_literals.append(a_name)
+                assumption_literals.append(a_name)
             else:
                 new_lines.append(line)
 

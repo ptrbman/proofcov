@@ -7,7 +7,6 @@ from goto import *
 from grapher import make_graph
 
 import re
-from collections import defaultdict
 from rich.console import Console
 
 import os
@@ -21,7 +20,7 @@ import sys
 # 2. Convert file to goto code
 # 3. Convert goto code to BMC formula
 # 4. Run BMC on the formula
-# 5. If BMC returns a core, extract the lines and subexpressions
+# 5. If BMC returns a core, extract the lines
 # 6. Find each line which is used by the core and mark it
 # 7. Output original code with each unmarked line removed (i.e., commented)
 
@@ -105,9 +104,6 @@ lines = [main_pattern.sub('void main() {', line) for line in lines]
 lines = re.sub(comment_pattern, replacer, '\n'.join(lines)).split('\n')
 
 
-# Remove empty lines
-# lines = [line + '\n' for line in lines.split('\n') if line.strip() != '']
-
 lines_with_numbers = [f"{i+1}: {line}" for i, line in enumerate(lines)]
 if args.verbose:
     print(Panel.fit('\n'.join(lines_with_numbers), title="C code"))
@@ -140,7 +136,7 @@ if args.verbose:
     print(goto)
 
 # 3. Convert goto code to BMC formula
-formula, annotated_nodes = BMC.gen_formula(goto, ssa, track_undef=args.track_undef)
+formula = BMC.gen_formula(goto, ssa, track_undef=args.track_undef)
 
 if args.verbose:
     print(Panel.fit("[purple]SMT formula:[/purple]"))
@@ -160,7 +156,7 @@ else:
         print("Test [red]fail")
         sys.exit(1)
 
-    # 5. If BMC returns a core, extract the lines and subexpressions
+    # 5. If BMC returns a core, extract the lines
     cores = [BMC.get_core(formula)]
 
 console = Console()
