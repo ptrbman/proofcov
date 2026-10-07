@@ -136,7 +136,8 @@ def make_graph(ast) -> Graph:
         return body
     
     elif isinstance(ast, c_ast.Compound):
-        block_items = ast.block_items
+        # pycparser gives None for an empty block {}
+        block_items = ast.block_items or []
         cur_g = None
         for b in block_items:
             g = make_graph(b)
@@ -163,21 +164,18 @@ def make_graph(ast) -> Graph:
         # We need a join node
         join_graph = Graph(join_node, join_node)
          
-        # Then branch
-        then_graph = make_graph(ast.iftrue)
-        assert(then_graph is not None)
-        then_graph.attach(join_graph)
-        if_node.then_nodes = then_graph.all_nodes()
-        
-        # Else branch
-        if ast.iffalse is not None:
-            else_graph = make_graph(ast.iffalse)
-            else_graph.attach(join_graph)
-            if_node.children = [then_graph.top_node, else_graph.top_node]
-            if_node.else_nodes = else_graph.all_nodes()
-        else:
-            if_node.children = [then_graph.top_node, join_node]
-            if_node.else_nodes = None
+        # A branch without statements (no else, or an empty block {}) goes directly to the
+        # join node and has no nodes (None), so it is not counted as a branch
+        def make_branch(branch_ast):
+            branch_graph = make_graph(branch_ast) if branch_ast is not None else None
+            if branch_graph is None:
+                return join_node, None
+            branch_graph.attach(join_graph)
+            return branch_graph.top_node, branch_graph.all_nodes()
+
+        then_top, if_node.then_nodes = make_branch(ast.iftrue)
+        else_top, if_node.else_nodes = make_branch(ast.iffalse)
+        if_node.children = [then_top, else_top]
      
         g = Graph(if_node, join_node)
         return g

@@ -28,6 +28,9 @@ EXPECTED = {
     "same_line_declarations.c": [{2, 3}],
     "same_line_if.c": [{4, 6, 7}],
     "no_branches.c": [{4, 5, 6}],
+    # Empty blocks {} in an if
+    "empty_else.c": [{4, 6, 7, 10}],
+    "empty_then.c": [{4, 6, 8, 10}],
 }
 
 # Expected coverage ("covered/total") reported by --line and --branch.
@@ -39,12 +42,17 @@ LINE_COVERAGE = {
     "same_line_declarations.c": "2/2",
     "same_line_if.c": "3/4",
     "no_branches.c": "3/3",
+    "empty_else.c": "4/5",
+    "empty_then.c": "4/5",
 }
 
 BRANCH_COVERAGE = {
     "initialized_decls.c": "1/1",
     # No if statements: reported as 0/0 instead of dividing by zero
     "no_branches.c": "0/0",
+    # An empty branch is not counted, like a missing else
+    "empty_else.c": "1/1",
+    "empty_then.c": "1/1",
 }
 
 

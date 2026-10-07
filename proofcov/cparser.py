@@ -188,7 +188,7 @@ class CParser():
            
         elif isinstance(s, c_ast.Compound):
             if not s.block_items:
-                return []
+                return [], set()
 
             items = []
             all_changed = set()
