@@ -1,5 +1,4 @@
 pyenv
-tmp.smt2
 proofcov/__pycache__/*
 tmp.c
 a.out
