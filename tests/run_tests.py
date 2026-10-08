@@ -35,6 +35,19 @@ EXPECTED = {
     "int_condition.c": [{4, 6, 7, 9}],
     "int_logic.c": [{5, 6, 8, 9, 11}],
     "int_assert.c": [{3, 4}],
+    # Front-end rewriting (normalize.py): truth value assigned to an int, functions, globals,
+    # arrays, ?:, #define and a multi-line comment (line numbers must stay the same)
+    "bool_assignment.c": [{4, 5, 6}],
+    "functions.c": [{5, 6, 10, 15, 16, 17, 20}],
+    "arrays_ternary.c": [{11, 13, 14, 15, 16}],
+}
+
+# Expected outcomes ("line:true/false") of the statements generated from truth values and ?:,
+# for programs with a single minimal core
+OUTCOMES = {
+    "bool_assignment.c": {"5:true"},
+    "functions.c": {"10:false"},
+    "arrays_ternary.c": {"15:false"},
 }
 
 # Programs proofcov should reject, with (part of) the expected error message
@@ -54,6 +67,8 @@ LINE_COVERAGE = {
     "empty_else.c": "4/5",
     "empty_then.c": "4/5",
     "int_condition.c": "4/5",
+    "functions.c": "7/8",
+    "arrays_ternary.c": "5/7",
 }
 
 BRANCH_COVERAGE = {
@@ -130,6 +145,22 @@ def check_coverage(program, kind, expected):
     return ok
 
 
+def check_outcomes(program, expected):
+    result, _ = run_proofcov(program, [])
+    got = None
+    for line in result.stdout.splitlines():
+        if line.startswith("OUTCOMES:"):
+            got = set(line.split()[1:])
+    ok = result.returncode == 0 and got == expected
+
+    if ok:
+        print(f"PASS  {program} (outcomes)")
+    else:
+        print(f"FAIL  {program} (outcomes): expected {sorted(expected)}")
+        print(f"      got {sorted(got) if got is not None else None}, exit code {result.returncode}")
+    return ok
+
+
 def check_unsupported(program, message):
     result, _ = run_proofcov(program, [])
     ok = result.returncode != 0 and message in result.stderr
@@ -157,11 +188,14 @@ def main():
     for program, expected in BRANCH_COVERAGE.items():
         if not check_coverage(program, "Branch", expected):
             failures += 1
+    for program, expected in OUTCOMES.items():
+        if not check_outcomes(program, expected):
+            failures += 1
     for program, message in UNSUPPORTED.items():
         if not check_unsupported(program, message):
             failures += 1
 
-    total = 2 * len(EXPECTED) + len(LINE_COVERAGE) + len(BRANCH_COVERAGE) + len(UNSUPPORTED)
+    total = 2 * len(EXPECTED) + len(LINE_COVERAGE) + len(BRANCH_COVERAGE) + len(OUTCOMES) + len(UNSUPPORTED)
     print(f"\n{total - failures}/{total} tests passed")
     sys.exit(1 if failures else 0)
 

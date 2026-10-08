@@ -8,9 +8,11 @@ import z3
 class BMC():
    
     # Constraint i of statement number k on a source line is named line<line>_<k>.<i>
-    # (e.g. line4_0.0 and line4_1.0 for a = 1; b = 2; on line 4)
+    # (e.g. line4_0.0 and line4_1.0 for a = 1; b = 2; on line 4). A statement with an
+    # outcome tag (see normalize.py) has the tag after k, e.g. line80_1true.0
     def make_assert(line, k, track_undef):
-        return ["(assert (! " + b + " :named line" + str(line.src_line) + "_" + str(k) + "." + str(i) + ")) ; line " + str(line.src_line) for i, b in enumerate(line.to_bmc(track_undef))]
+        tag = getattr(line, "tag", None) or ""
+        return ["(assert (! " + b + " :named line" + str(line.src_line) + "_" + str(k) + tag + "." + str(i) + ")) ; line " + str(line.src_line) for i, b in enumerate(line.to_bmc(track_undef))]
 
     def handle_phi(l, track_undef):
         if track_undef:
@@ -125,12 +127,12 @@ class BMC():
             raise RuntimeError("z3 returned unknown: " + solver.reason_unknown())
         return result == z3.sat
 
-    # Returns a (minimized) unsat core as a set of line numbers
+    # Returns a (minimized) unsat core as a list of assumption literal names
     def get_core(formula):
         solver, literals = BMC.make_solver(formula)
         solver.set("core.minimize", True)
         assert solver.check(literals) == z3.unsat
-        return BMC.core_to_lines([c.decl().name() for c in solver.unsat_core()])
+        return [c.decl().name() for c in solver.unsat_core()]
 
     # Convert every named assertion such as:
     #     (assert (! (= x.1 1) :named line5.0)) ; line 5
@@ -172,7 +174,7 @@ class BMC():
     def core_to_lines(core):
         lines = set()
         for c in core:
-            m = re.match(r"a_line(\d+)_\d+\.\d+", c)
+            m = re.match(r"a_line(\d+)_\d+(true|false)?\.\d+", c)
             if m:
                 lines.add(int(m.group(1)))
                 continue
@@ -182,8 +184,17 @@ class BMC():
                 lines.add(int(m.group(2)))
         return lines
 
-    # Enumerate all minimal unsat cores, each as a set of line numbers.
+    # Takes an unsat core and returns the outcomes of tagged statements in it,
+    # as a set of (line, "true"/"false")
+    def core_to_outcomes(core):
+        outcomes = set()
+        for c in core:
+            m = re.match(r"a_line(\d+)_\d+(true|false)\.\d+", c)
+            if m:
+                outcomes.add((int(m.group(1)), m.group(2)))
+        return outcomes
+
+    # Enumerate all minimal unsat cores, each as a list of assumption literal names.
     # Returns an empty list if the formula is SAT.
     def get_all_cores(formula):
-        muses = get_MUSes(BMC.add_assumption_literals(formula))
-        return [BMC.core_to_lines(mus) for mus in muses]
+        return get_MUSes(BMC.add_assumption_literals(formula))

@@ -223,17 +223,17 @@ class CParser():
             assert(dectype == 'int')
             if isinstance(s.init, c_ast.FuncCall):
                 assert(s.init.name.name == 'nondet_int')
-                return [Declaration(ssa.new(name), None, s.coord.line)], set(name)
+                return [Declaration(ssa.add(name), None, s.coord.line)], {name}
             else:
                 if isinstance(s.init, c_ast.Constant):
-                    return [Declaration(ssa.add(name), s.init.value, s.coord.line)], set(name)
+                    return [Declaration(ssa.add(name), s.init.value, s.coord.line)], {name}
                 elif isinstance(s.init, c_ast.UnaryOp):
                     assert(s.init.op == '-')
                     assert(isinstance(s.init.expr, c_ast.Constant))
                     value = s.init.expr.value
-                    return [Declaration(ssa.add(name), '-' + value, s.coord.line)], set(name)
+                    return [Declaration(ssa.add(name), '-' + value, s.coord.line)], {name}
                 elif not s.init:
-                    return [Declaration(ssa.add(name), None, s.coord.line)], set(name)
+                    return [Declaration(ssa.add(name), None, s.coord.line)], {name}
                 else:
                     print(s.init)
                     raise Exception("Mathc on type ... ")
@@ -244,7 +244,7 @@ class CParser():
             assert(isinstance(s.lvalue, c_ast.ID))
             lhs = Var(ssa.inc(s.lvalue.name))
 
-            return [Assignment(lhs, rhs, s.coord.line)], set([s.lvalue.name])
+            return [Assignment(lhs, rhs, s.coord.line, CParser.tags.get(s))], set([s.lvalue.name])
         elif isinstance(s, c_ast.For):
             raise NotImplementedError("For loops are not supported yet, please unroll them manually")
         else:
@@ -283,7 +283,11 @@ class CParser():
         else:
             raise NotImplementedError("Unsupported node type in AST" + str(type(node)))
 
-    def ast_to_goto(ast):
+    # Outcome tags ("true"/"false") of generated assignments, see normalize.py
+    tags = {}
+
+    def ast_to_goto(ast, tags=None):
+        CParser.tags = tags if tags is not None else {}
         gotos = []
         ssas = []
         for a in ast:

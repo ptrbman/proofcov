@@ -5,11 +5,14 @@ from rich.panel import Panel
 from bmc import BMC
 from goto import *
 from grapher import make_graph
+from normalize import normalize, UnsupportedError
 
 import re
 from rich.console import Console
 
+import builtins
 import os
+import subprocess
 import sys
 
 
@@ -83,7 +86,8 @@ lines = [line.rstrip('\n') for line in lines]
 def replacer(match):
     s = match.group(0)
     if s.startswith('/'):
-        return " " # note: a space and not an empty string
+        # note: a space and not an empty string, and keep the newlines of a /* */ comment so line numbers stay the same
+        return " " + "\n" * s.count("\n")
     else:
         return s
 comment_pattern = re.compile(
@@ -114,8 +118,22 @@ lines_with_numbers = [f"{i+1}: {line}" for i, line in enumerate(lines)]
 if args.verbose:
     print(Panel.fit('\n'.join(lines_with_numbers), title="C code"))
 
-# 2. Convert file to goto code
-ast = CParser.parse_lines(lines) 
+# Expand preprocessor directives (#define) with the C preprocessor, its line markers keep the original line numbers
+source = '\n'.join(lines)
+if re.search(r'^\s*#', source, re.MULTILINE):
+    cpp = subprocess.run(["gcc", "-E", "-x", "c", "-"], input=source, capture_output=True, text=True)
+    if cpp.returncode != 0:
+        print(cpp.stderr, file=sys.stderr)
+        sys.exit(2)
+    source = cpp.stdout
+
+# 2. Convert file to goto code, after rewriting it into the supported subset (see normalize.py)
+ast = CParser.parse_lines(source.split('\n'))
+try:
+    ast, tags = normalize(ast)
+except UnsupportedError as e:
+    print(f"Unsupported: {e}" if not str(e).startswith("Unsupported") else str(e), file=sys.stderr)
+    sys.exit(2)
 
 # Create CFG
 graph = make_graph(ast)
@@ -126,17 +144,19 @@ if args.graph:
     print("Generating control flow graph at tmp/" + cfg_image_path)
     graph.draw("tmp/" + cfg_image_path)
 
+# Branches are identified by the line of their if-statement and the side (then/else), so the
+# copies of an if in a function inlined several times count as one branch
 branches = None
 if args.branch:
-    branches = []
+    branches = {}
     branch_nodes = graph.all_branch_nodes()
     for bn in branch_nodes:
         if bn.then_nodes:
-            branches.append((bn, bn.then_nodes))
+            branches.setdefault((bn.line_number, "then"), []).append((bn, bn.then_nodes))
         if bn.else_nodes:
-            branches.append((bn, bn.else_nodes))
+            branches.setdefault((bn.line_number, "else"), []).append((bn, bn.else_nodes))
 
-goto, ssa = CParser.ast_to_goto(ast)
+goto, ssa = CParser.ast_to_goto(ast, tags)
 
 if args.verbose:
     print(Panel.fit("[green]Goto code:[/green]"))
@@ -169,12 +189,19 @@ else:
 console = Console()
 
 if args.experiment:
-    # In experiment mode we just output the marked lines of each core as a list
+    # In experiment mode we just output the marked lines of each core as a list, followed by the
+    # outcomes (line:true/false) of the statements generated from truth values and ?: in the core.
+    # STATEMENT_LINES are all lines with a statement, OUTCOME_LINES those with generated outcomes.
+    # (builtins.print, as rich's print wraps long lines)
     for core in cores:
-        print("COVERED:", ' '.join(map(str, sorted(core))))
+        builtins.print("COVERED:", ' '.join(map(str, sorted(BMC.core_to_lines(core)))))
+        builtins.print("OUTCOMES:", ' '.join(f"{l}:{t}" for l, t in sorted(BMC.core_to_outcomes(core))))
+    builtins.print("STATEMENT_LINES:", ' '.join(map(str, sorted({n.line_number for n in graph.all_nodes()}))))
+    builtins.print("OUTCOME_LINES:", ' '.join(map(str, sorted({l.src_line for l in goto.body if getattr(l, "tag", None)}))))
     sys.exit(0)
 
-for core_id, result in enumerate(cores, start=1):
+for core_id, core in enumerate(cores, start=1):
+    result = BMC.core_to_lines(core)
     if args.enumerate_cores:
         print(Panel.fit(f"[blue]Core {core_id}/{len(cores)}[/blue]"))
 
@@ -225,18 +252,19 @@ for core_id, result in enumerate(cores, start=1):
         covered_branches = 0
         if args.verbose:    
             print(Panel.fit("[yellow]Branch coverage details:[/yellow]"))
-        for bn, nodes in branches:
+        for (line_number, side), instances in sorted(branches.items()):
             covered = False
             if args.verbose:    
-                console.print(f'[white]Branch at line {bn.line_number} with target join at line {bn.target_join.line_number if bn.target_join.line_number else "N/A"}[/white]')
-            for n in nodes:
-                if n.line_number in original_marked_lines:
-                    if args.verbose:    
-                        console.print(f'  [white]Node at line {n.line_number}:[green] {n.text}[/green][/white]')
-                    covered = True
-                else:
-                    if args.verbose:    
-                        console.print(f'  [white]Node at line {n.line_number}:[red] {n.text}[/red][/white]') 
+                console.print(f'[white]Branch at line {line_number} ({side})[/white]')
+            for bn, nodes in instances:
+                for n in nodes:
+                    if n.line_number in original_marked_lines:
+                        if args.verbose:    
+                            console.print(f'  [white]Node at line {n.line_number}:[green] {n.text}[/green][/white]')
+                        covered = True
+                    else:
+                        if args.verbose:    
+                            console.print(f'  [white]Node at line {n.line_number}:[red] {n.text}[/red][/white]') 
             if covered:
                 covered_branches += 1
         # Display branch coverage as a fraction and percentage

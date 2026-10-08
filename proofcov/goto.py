@@ -235,11 +235,13 @@ class Declaration(Line):
 
     
 class Assignment(Line):
-    def __init__(self, lhs, rhs, src_line):
+    # tag is "true"/"false" for the two assignments generated from a truth value (see normalize.py)
+    def __init__(self, lhs, rhs, src_line, tag=None):
         self.lhs = lhs
         assert(not isinstance(lhs, str))
         self.rhs = rhs
         self.src_line = src_line
+        self.tag = tag
 
     def to_bmc(self, track_undef):
         # TODO: check  
