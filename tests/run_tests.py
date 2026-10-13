@@ -40,6 +40,8 @@ EXPECTED = {
     "bool_assignment.c": [{4, 5, 6}],
     "functions.c": [{5, 6, 10, 15, 16, 17, 20}],
     "arrays_ternary.c": [{11, 13, 14, 15, 16}],
+    # / and % round towards zero as in C (SMT-LIB div/mod would give -4 and 1)
+    "c_division.c": [{6, 7, 8, 9, 10}],
 }
 
 # Expected outcomes ("line:true/false") of the statements generated from truth values and ?:,

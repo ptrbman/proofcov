@@ -90,16 +90,23 @@ class Le(BinOp):
     def __str__(self):
         return str(self.lhs) + " <= " + str(self.rhs)
 
+# C rounds the quotient towards zero (-7 / 2 == -3, -7 % 2 == -1), while SMT-LIB div/mod are
+# Euclidean (the remainder is never negative: (div -7 2) == -4, (mod -7 2) == 1). They agree for
+# a non-negative dividend, and for a negative dividend a, C's result is minus the one for -a.
+# Division by zero is undefined in C and its result is unconstrained in SMT-LIB.
 class Div(BinOp):
     def to_bmc(self, track_undef):
-        return "(div " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
+        a, b = self.lhs.to_bmc(track_undef), self.rhs.to_bmc(track_undef)
+        return "(ite (>= " + a + " 0) (div " + a + " " + b + ") (- 0 (div (- 0 " + a + ") " + b + ")))"
 
     def __str__(self):
         return str(self.lhs) + " / " + str(self.rhs)
 
 class Mod(BinOp):
+    # See Div for the difference between C and SMT-LIB
     def to_bmc(self, track_undef):
-        return "(mod " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ")"
+        a, b = self.lhs.to_bmc(track_undef), self.rhs.to_bmc(track_undef)
+        return "(ite (>= " + a + " 0) (mod " + a + " " + b + ") (- 0 (mod (- 0 " + a + ") " + b + ")))"
 
     def __str__(self):
         return str(self.lhs) + " % " + str(self.rhs)
