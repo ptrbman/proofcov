@@ -151,7 +151,8 @@ def make_graph(ast) -> Graph:
     elif isinstance(ast, c_ast.Decl):
         # A declaration with a value (int a = 0;) is an assignment the proof can depend on,
         # so it is a line. Without a value (int a;) or with nondet_int() it is not.
-        if ast.init is None or isinstance(ast.init, c_ast.FuncCall):
+        # Line 0 is not a line of the program (e.g. zero initialization of globals, see normalize.py)
+        if ast.init is None or isinstance(ast.init, c_ast.FuncCall) or ast.coord.line == 0:
             return None
         s = f'{ast.name} = {astvalue_to_string(ast.init)}'
         n = Node(line_number=ast.coord.line, text=s)

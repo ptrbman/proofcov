@@ -42,6 +42,8 @@ EXPECTED = {
     "arrays_ternary.c": [{11, 13, 14, 15, 16}],
     # / and % round towards zero as in C (SMT-LIB div/mod would give -4 and 1)
     "c_division.c": [{6, 7, 8, 9, 10}],
+    # Global variables are 0 as in C; the initialization is not a line of the program
+    "global_zero_init.c": [{6, 7}],
 }
 
 # Expected outcomes ("line:true/false") of the statements generated from truth values and ?:,
@@ -71,6 +73,7 @@ LINE_COVERAGE = {
     "int_condition.c": "4/5",
     "functions.c": "7/8",
     "arrays_ternary.c": "5/7",
+    "global_zero_init.c": "2/2",
 }
 
 BRANCH_COVERAGE = {

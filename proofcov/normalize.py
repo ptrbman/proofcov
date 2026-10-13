@@ -4,7 +4,8 @@
 # a final assert. This automates the manual refactoring used for tcas in the paper:
 #
 # - typedefs of int (e.g. typedef int bool;) are treated as int
-# - global variables become declarations at the start of main (without a value)
+# - global variables become declarations at the start of main, initialized to 0 as in C
+#   (on line NO_LINE, so the initialization is not a line of the program)
 # - arrays of constant size become one variable per element (A[2] -> A__2); reading
 #   with a variable index becomes an if-chain over the elements
 # - calls to functions without parameters are inlined, with the local variables renamed
@@ -22,7 +23,12 @@
 # "true" and "false" outcome of their line, see Normalizer.tags.
 
 from pycparser import c_ast
+from pycparser.c_parser import Coord
 import weakref
+
+# Line number of generated statements which are not a line of the program (e.g. the zero
+# initialization of global variables); they are not counted in coverage
+NO_LINE = 0
 
 
 class UnsupportedError(Exception):
@@ -119,7 +125,7 @@ class Normalizer():
         main = self.functions['main']
         stmts = []
         for d in self.global_decls:
-            stmts += self.declare(d, d.name, self.scopes[0])
+            stmts += self.declare(d, d.name, self.scopes[0], zero_init=True)
 
         # Locals of main keep their names
         scope = {}
@@ -165,8 +171,10 @@ class Normalizer():
         for s in items:
             Visitor().visit(s)
 
-    # Declare a variable (scalar or array) under a normalized name in scope
-    def declare(self, d, new_name, scope):
+    # Declare a variable (scalar or array) under a normalized name in scope. With zero_init
+    # (global variables) a declaration without a value is initialized to 0, as in C.
+    def declare(self, d, new_name, scope, zero_init=False):
+        no_line = Coord(d.coord.file, NO_LINE)
         if isinstance(d.type, c_ast.ArrayDecl):
             self.check_int_type(d.type.type, d.coord)
             if d.init is not None or not isinstance(d.type.dim, c_ast.Constant):
@@ -174,11 +182,15 @@ class Normalizer():
             size = int(d.type.dim.value, 0)
             scope[d.name] = new_name
             self.arrays[new_name] = size
+            if zero_init:
+                return [make_decl(f"{new_name}__{i}", make_const(0, no_line), no_line) for i in range(size)]
             return [make_decl(f"{new_name}__{i}", None, d.coord) for i in range(size)]
 
         self.check_int_type(d.type, d.coord)
         scope[d.name] = new_name
         init = d.init
+        if init is None and zero_init:
+            return [make_decl(new_name, make_const(0, no_line), no_line)]
         if init is None or is_constant(init) or (isinstance(init, c_ast.FuncCall) and init.name.name == 'nondet_int'):
             return [make_decl(new_name, init, d.coord)]
         # int x = <expression>; becomes a declaration and an assignment on the same line

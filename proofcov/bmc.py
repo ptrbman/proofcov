@@ -176,7 +176,9 @@ class BMC():
         for c in core:
             m = re.match(r"a_line(\d+)_\d+(true|false)?\.\d+", c)
             if m:
-                lines.add(int(m.group(1)))
+                # Line 0 is not a line of the program (e.g. zero initialization of globals, see normalize.py)
+                if int(m.group(1)) != 0:
+                    lines.add(int(m.group(1)))
                 continue
 
             m = re.match(r"a_phi\.(\w+)\.(\d+)\.", c)
