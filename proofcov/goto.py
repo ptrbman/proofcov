@@ -15,7 +15,7 @@ class UnaryOp(Expr):
 
 class Neg(UnaryOp):
     def to_bmc(self, track_undef):
-         return "(- 0 " + self.hs.to_bmc(track_undef) + ")" # TODO: Fix unary - SMT
+         return "(- 0 " + self.hs.to_bmc(track_undef) + ")"
 
    
     def __str__(self):

@@ -66,5 +66,8 @@ ProofCov rewrites the program into the supported subset of C before the analysis
 python tests/run_tests.py
 ```
 
+## License
+ProofCov is released under the MIT License, see [LICENSE](LICENSE). `proofcov/marco.py` is based on an example from Z3 (Copyright (c) 2016 Microsoft Corporation, MIT License).
+
 ## Bugs
 Please report any bugs or contact me if you have any questions!

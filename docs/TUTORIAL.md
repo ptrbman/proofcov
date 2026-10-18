@@ -18,7 +18,7 @@
 
 # proofcov tutorial
 
-> **Draft.** This tutorial walks you through installing proofcov, running it on a few
+> This tutorial walks you through installing proofcov, running it on a few
 > example programs and reading what it prints. The commands assume you are in the root of
 > the repository.
 
@@ -510,19 +510,23 @@ python tests/run_tests.py
 
 ```
 ...
-65/65 tests passed
+66/66 tests passed, 1 known failure (XFAIL)
 ```
 
 The test programs are in [`tests/programs/`](../tests/programs). Each one has its expected
 minimal unsat cores listed in `tests/run_tests.py`, which also checks the coverage numbers,
-the warnings and the error messages for unsupported programs.
+the warnings and the error messages for unsupported programs. The known failure is a
+`--track-undef` case where a proof uses both sides of an `if`, which the encoding should not
+allow yet does; it is described in `KNOWN_FAILURES` in `tests/run_tests.py`.
 
 ---
 
 ## 12. Further reading
 
-* **The paper:** <!-- TODO: FM 2026 citation (authors, title, link) --> *[FM 2026 paper,
-  citation to be added]* gives the definitions of the proof-based coverage metrics.
+* **The paper:** Peter Backeman and Karl Mattson,
+  [*From Execution to Necessity: Proof-Based Metrics for Code Coverage*](https://conf.researchr.org/track/fm-2026/fm-2026-tap),
+  Tests and Proofs (TAP) track at FM 2026, gives the definitions of the proof-based coverage
+  metrics.
 * **The TCAS experiment:** [`tcas/README.md`](../tcas/README.md) compares proofcov with
   `gcov` on TCAS. The TCAS source is licensed and not part of this repository.
 * **Bugs and questions:** please open an issue on

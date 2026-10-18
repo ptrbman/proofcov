@@ -104,6 +104,18 @@ WARNINGS = {
 }
 
 
+# With --track-undef every proof should lie on one execution trace (Theorem 3 of the paper), so lines
+# on different sides of an if can not all be in one core. Each program lists such lines.
+SAME_TRACE = {
+    "undef_both_branches.c": {8, 10},
+}
+
+# Known failures, reported as XFAIL and not counted as failed. The --track-undef encoding breaks
+# Theorem 3: b = a makes b defined even when a is not, so the condition b == 1 counts as defined
+# while its value is unconstrained, and one core uses both x = 1 (lines 8 and 10).
+KNOWN_FAILURES = {"undef_both_branches.c"}
+
+
 def run_proofcov(program, extra_args, experiment=True):
     path = os.path.join(TESTS_DIR, "programs", program)
     # FORCE_COLOR makes rich print color codes even into a pipe, which breaks parsing
@@ -195,6 +207,26 @@ def check_warning(program, message):
     return ok
 
 
+def check_same_trace(program, lines):
+    result, cores = run_proofcov(program, ["--track-undef", "--enumerate-cores"])
+    bad = [sorted(c) for c in cores if lines <= c]
+    ok = result.returncode == 0 and cores and not bad
+    known = program in KNOWN_FAILURES
+
+    if ok and known:
+        print(f"XPASS {program} (same trace): passes now, remove it from KNOWN_FAILURES")
+    elif ok:
+        print(f"PASS  {program} (same trace)")
+    else:
+        print(f"{'XFAIL' if known else 'FAIL '} {program} (same trace): expected no core with all of lines {sorted(lines)}")
+        print(f"      got cores {[sorted(c) for c in cores]}, exit code {result.returncode}")
+    # Returns "pass", "fail" or "xfail". A known failure that passes is a failure, so that
+    # KNOWN_FAILURES is kept up to date.
+    if known:
+        return "fail" if ok else "xfail"
+    return "pass" if ok else "fail"
+
+
 def check_unsupported(program, message):
     result, _ = run_proofcov(program, [])
     # Exit code 2 and a message, not a traceback (exit code 1 means the assertion can fail)
@@ -232,9 +264,15 @@ def main():
     for program, message in UNSUPPORTED.items():
         if not check_unsupported(program, message):
             failures += 1
+    xfails = 0
+    for program, lines in SAME_TRACE.items():
+        status = check_same_trace(program, lines)
+        failures += status == "fail"
+        xfails += status == "xfail"
 
-    total = 2 * len(EXPECTED) + len(LINE_COVERAGE) + len(BRANCH_COVERAGE) + len(OUTCOMES) + len(UNSUPPORTED)
-    print(f"\n{total - failures}/{total} tests passed")
+    total = (2 * len(EXPECTED) + len(LINE_COVERAGE) + len(BRANCH_COVERAGE) + len(OUTCOMES)
+             + len(WARNINGS) + len(UNSUPPORTED) + len(SAME_TRACE))
+    print(f"\n{total - failures - xfails}/{total - xfails} tests passed" + (f", {xfails} known failure (XFAIL)" if xfails else ""))
     sys.exit(1 if failures else 0)
 
 
