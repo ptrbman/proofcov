@@ -30,9 +30,9 @@ class BMC():
     def gen_formula(goto, ssa, track_undef=False):
         assert(isinstance(goto, Function))
         
-        # Turn each arg into declaration
-        decls = [Declaration(a[0], -1) for a in goto.args]
-        lines = decls + goto.body
+        # After normalization main has no parameters
+        assert(not goto.args)
+        lines = goto.body
 
         header = []
         for k in ssa.names:

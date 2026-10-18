@@ -303,7 +303,6 @@ class Phi(Line):
     def to_bmc(self, track_undef):
         if track_undef:
             variables = self.cond.get_variables()
-            print(f'\n\nVariables in phi condition: {variables}')
             
             if variables == []:
                 # We can not skip the phi if there are no variables in the condition

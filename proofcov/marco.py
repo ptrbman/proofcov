@@ -71,12 +71,10 @@ def get_MUSes(formula):
 	return muses
 
 class SubsetSolver:
-	n = 0
-	s = Solver()
-	guards = [] # The assumption literals
-	bodies = [] # The actual conditions
-
 	def __init__(self, formula):
+		self.s = Solver()
+		self.guards = [] # The assumption literals
+		self.bodies = [] # The actual conditions
 		assumptions = parse_smt2_string(formula)
 		
 		for a in assumptions:

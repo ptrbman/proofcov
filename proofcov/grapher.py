@@ -117,6 +117,13 @@ def astvalue_to_string(astvalue):
         return f"{astvalue.op}{astvalue_to_string(astvalue.expr)}"
     else:
         raise Exception("Unsupported AST value type in astvalue_to_string:", type(astvalue))
+
+# A whole expression in a label, without the parentheses around a top-level binary operator
+def expr_to_string(astvalue):
+    s = astvalue_to_string(astvalue)
+    if isinstance(astvalue, c_ast.BinaryOp):
+        return s[1:-1]
+    return s
     
 def make_graph(ast) -> Graph:
     if isinstance(ast, c_ast.FileAST):
@@ -151,11 +158,11 @@ def make_graph(ast) -> Graph:
         # Line 0 is not a line of the program (e.g. zero initialization of globals, see normalize.py)
         if ast.init is None or isinstance(ast.init, c_ast.FuncCall) or ast.coord.line == 0:
             return None
-        s = f'{ast.name} = {astvalue_to_string(ast.init)}'
+        s = f'{ast.name} = {expr_to_string(ast.init)}'
         n = Node(line_number=ast.coord.line, text=s)
         return Graph(n, n)
     elif isinstance(ast, c_ast.If):
-        s = f'if ({astvalue_to_string(ast.cond)})'
+        s = f'if ({expr_to_string(ast.cond)})'
         join_node = Node(line_number=None, text="JOIN", is_join=True)
         if_node = Node(line_number=ast.coord.line, text=s, target_join=join_node)
         
@@ -178,11 +185,11 @@ def make_graph(ast) -> Graph:
         g = Graph(if_node, join_node)
         return g
     elif isinstance(ast, c_ast.FuncCall):
-        s = f'{ast.name.name}{", ".join([astvalue_to_string(arg) for arg in ast.args.exprs])}'
+        s = f'{ast.name.name}({", ".join([expr_to_string(arg) for arg in ast.args.exprs])})'
         n = Node(line_number=ast.coord.line, text=s)
         return Graph(n, n)
     elif isinstance(ast, c_ast.Assignment):
-        s = f'{ast.lvalue.name} {ast.op} {astvalue_to_string(ast.rvalue)}'
+        s = f'{ast.lvalue.name} {ast.op} {expr_to_string(ast.rvalue)}'
         n = Node(line_number=ast.coord.line, text=s)
         g = Graph(n, n)
         return g
