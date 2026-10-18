@@ -36,6 +36,9 @@ NO_LINE = 0
 class UnsupportedError(Exception):
     pass
 
+# The binary operators the goto translation (cparser.py) supports
+BINARY_OPS = ('==', '!=', '>', '>=', '<', '<=', '+', '-', '*', '/', '%', '&&', '||')
+
 
 BOOL_OPS = {'==', '!=', '<', '>', '<=', '>=', '&&', '||'}
 
@@ -276,6 +279,8 @@ class Normalizer():
                 raise UnsupportedError(f"Unsupported constant {e.value} at line {e.coord.line}")
             return [], c_ast.Constant('int', e.value, e.coord)
         elif isinstance(e, c_ast.BinaryOp):
+            if e.op not in BINARY_OPS:
+                raise UnsupportedError(f"Unsupported operator {e.op} at line {e.coord.line}")
             pre_l, lhs = self.expr(e.left, conditional)
             pre_r, rhs = self.expr(e.right, conditional or e.op in ('&&', '||'))
             return pre_l + pre_r, c_ast.BinaryOp(e.op, lhs, rhs, e.coord)

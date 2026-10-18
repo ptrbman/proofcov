@@ -2,6 +2,7 @@ from pycparser import c_parser, c_ast
 from rich import print
 from rich.panel import Panel
 from goto import *
+from normalize import UnsupportedError
 
 
 class SSANames():
@@ -102,7 +103,7 @@ class CParser():
     # The other direction, a truth value used as a number (e.g. x = (a > b);), is not supported
     def as_number(e, c_expr):
         if isinstance(e, CParser.BOOLEAN):
-            raise TypeError(f"Unsupported: condition used as a number at line {c_expr.coord.line}")
+            raise UnsupportedError(f"Unsupported: condition used as a number at line {c_expr.coord.line}")
         return e
 
     def handle_expr(e, ssa):

@@ -6,6 +6,7 @@ from bmc import BMC
 from goto import *
 from grapher import make_graph
 from normalize import normalize, UnsupportedError
+from pycparser.c_parser import ParseError
 
 import re
 from rich.console import Console
@@ -75,8 +76,8 @@ if not dirpath:
 print(r"\[proofcov] Opening file", dirpath + "/" + filename)
 
 if not os.path.exists(dirpath + '/' + filename):
-    print(f"[red]Error: File '{filename}' does not exist in directory '{dirpath}'[/red]")
-    sys.exit(1)
+    print(f"[red]Error: File '{filename}' does not exist in directory '{dirpath}'[/red]", file=sys.stderr)
+    sys.exit(2)
 
 
 lines = open(dirpath + '/' + filename, 'r').readlines()
@@ -128,12 +129,22 @@ if re.search(r'^\s*#', source, re.MULTILINE):
     source = cpp.stdout
 
 # 2. Convert file to goto code, after rewriting it into the supported subset (see normalize.py)
-ast = CParser.parse_lines(source.split('\n'))
+try:
+    ast = CParser.parse_lines(source.split('\n'))
+except ParseError as e:
+    # pycparser reports "<file>:<line>:<column>: <message>"; the file is empty or <stdin> after gcc -E
+    location, _, message = str(e).partition(': ')
+    line, column = location.split(':')[-2:]
+    builtins.print(f"Parse error at line {line}, column {column}: {message}", file=sys.stderr)
+    sys.exit(2)
+def unsupported(e):
+    print(f"Unsupported: {e}" if not str(e).startswith("Unsupported") else str(e), file=sys.stderr)
+    sys.exit(2)
+
 try:
     ast, tags, generated_ifs = normalize(ast)
 except UnsupportedError as e:
-    print(f"Unsupported: {e}" if not str(e).startswith("Unsupported") else str(e), file=sys.stderr)
-    sys.exit(2)
+    unsupported(e)
 
 # Create CFG
 graph = make_graph(ast, generated_ifs)
@@ -162,7 +173,11 @@ if args.branch:
         if len({bn.column for bn in branch_nodes if bn.line_number == line_number}) > 1:
             builtins.print(f"Warning: line {line_number} has more than one if-statement, their branches are counted as one", file=sys.stderr)
 
-goto, ssa = CParser.ast_to_goto(ast, tags)
+# A truth value used as a number is found only when translating to goto code
+try:
+    goto, ssa = CParser.ast_to_goto(ast, tags)
+except UnsupportedError as e:
+    unsupported(e)
 
 if args.verbose:
     print(Panel.fit("[green]Goto code:[/green]"))

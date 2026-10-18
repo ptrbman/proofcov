@@ -59,6 +59,9 @@ OUTCOMES = {
 # Programs proofcov should reject, with (part of) the expected error message
 UNSUPPORTED = {
     "condition_as_number.c": "Unsupported: condition used as a number at line 5",
+    "unsupported_operator.c": "Unsupported operator << at line 3",
+    # The missing semicolon on line 2 is found at the next token
+    "parse_error.c": "Parse error at line 3, column 5",
 }
 
 # Expected coverage ("covered/total") reported by --line and --branch.
@@ -194,7 +197,8 @@ def check_warning(program, message):
 
 def check_unsupported(program, message):
     result, _ = run_proofcov(program, [])
-    ok = result.returncode != 0 and message in result.stderr
+    # Exit code 2 and a message, not a traceback (exit code 1 means the assertion can fail)
+    ok = result.returncode == 2 and message in result.stderr and "Traceback" not in result.stderr
 
     if ok:
         print(f"PASS  {program} (unsupported)")
