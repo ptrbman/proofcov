@@ -44,6 +44,8 @@ EXPECTED = {
     "c_division.c": [{6, 7, 8, 9, 10}],
     # Global variables are 0 as in C; the initialization is not a line of the program
     "global_zero_init.c": [{6, 7}],
+    # Two ifs on one line
+    "two_ifs_one_line.c": [{2, 6, 7}],
 }
 
 # Expected outcomes ("line:true/false") of the statements generated from truth values and ?:,
@@ -74,6 +76,7 @@ LINE_COVERAGE = {
     "functions.c": "7/8",
     "arrays_ternary.c": "5/7",
     "global_zero_init.c": "2/2",
+    "two_ifs_one_line.c": "3/6",
 }
 
 BRANCH_COVERAGE = {
@@ -84,6 +87,17 @@ BRANCH_COVERAGE = {
     "empty_else.c": "1/1",
     "empty_then.c": "1/1",
     "int_condition.c": "1/1",
+    # The ifs generated from truth values, ?: and array reads (normalize.py) are not branches
+    "bool_assignment.c": "0/0",
+    "arrays_ternary.c": "0/0",
+    "functions.c": "0/1",
+    # Two ifs on one line can not be told apart and count as one branch (with a warning)
+    "two_ifs_one_line.c": "1/1",
+}
+
+# Programs for which --branch should print a warning, with (part of) the expected message
+WARNINGS = {
+    "two_ifs_one_line.c": "Warning: line 6 has more than one if-statement",
 }
 
 
@@ -166,6 +180,18 @@ def check_outcomes(program, expected):
     return ok
 
 
+def check_warning(program, message):
+    result, _ = run_proofcov(program, ["--branch"], experiment=False)
+    ok = result.returncode == 0 and message in result.stderr
+
+    if ok:
+        print(f"PASS  {program} (warning)")
+    else:
+        print(f"FAIL  {program} (warning): expected a warning containing '{message}'")
+        print(f"      got exit code {result.returncode}, stderr: {result.stderr.strip()!r}")
+    return ok
+
+
 def check_unsupported(program, message):
     result, _ = run_proofcov(program, [])
     ok = result.returncode != 0 and message in result.stderr
@@ -195,6 +221,9 @@ def main():
             failures += 1
     for program, expected in OUTCOMES.items():
         if not check_outcomes(program, expected):
+            failures += 1
+    for program, message in WARNINGS.items():
+        if not check_warning(program, message):
             failures += 1
     for program, message in UNSUPPORTED.items():
         if not check_unsupported(program, message):
