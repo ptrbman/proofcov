@@ -202,6 +202,18 @@ Branch coverage: 2/4 (50.00%)
 * The fan controller has four branches (lines 6 and 8, `then` and `else` for each). The
   proof uses the `then` side of line 6 and the `else` side of line 8.
 * When the program has no `if` statements, proofcov prints `0/0 (no branches)`.
+* Only the `if` statements of your program are branches. The conditions proofcov generates
+  itself, for `?:`, for truth values assigned to integers and for array reads with a variable
+  index (see [section 9](#9-which-programs-are-supported)), are not counted.
+* An `if` that a function contains counts once, however many times the function is called.
+* Coverage is measured per line, so two `if` statements on the same line can't be told
+  apart. Their branches count as one, and proofcov prints a warning on stderr:
+
+  ```
+  Warning: line 6 has more than one if-statement, their branches are counted as one
+  ```
+
+  Put each `if` on its own line to measure them separately.
 
 ### Exit codes
 
@@ -209,7 +221,7 @@ Branch coverage: 2/4 (50.00%)
 | --- | --- |
 | `0` | The assertion was proved and coverage was reported |
 | `1` | The assertion can fail (`Test fail`), see [section 8](#8-when-the-assertion-can-fail) |
-| `2` | The program uses an unsupported construct, or `gcc` failed to preprocess it |
+| `2` | proofcov could not analyze the program: the file does not exist, it is not valid C, it uses an unsupported construct (see [section 9](#9-which-programs-are-supported)) or `gcc` failed to preprocess it |
 
 ---
 
@@ -299,8 +311,6 @@ python proofcov/proofcov.py examples/fan.c --line --graph
 Generating control flow graph at tmp/fan.png
 Line coverage: 6/14 (42.86%)
 Generating control flow graph (line coverage) at tmp/fan_line.png
-Marked lines:
-[3, 4, 6, 8, 12, 21]
 ```
 
 Two PNG files are written to `tmp/`, relative to the directory you run proofcov from:
@@ -346,8 +356,6 @@ python proofcov/proofcov.py examples/or_in_assert.c --all --enumerate-cores
 
 ```
 [proofcov] Opening file examples/or_in_assert.c
-MUS:  ['a_line6_0.0', 'a_line8_0.0']
-MUS:  ['a_line5_0.0', 'a_line8_0.0']
 ╭──────────╮
 │ Core 1/2 │
 ╰──────────╯
@@ -360,10 +368,8 @@ Line coverage: 2/3 (66.67%)
 Branch coverage: 0/0 (no branches)
 ```
 
-Each `MUS:` line (*minimal unsatisfiable subset*) lists the named constraints of one core.
-`a_lineN_...` is a statement on line `N`, and `a_phi.if.L.x` / `a_phi.else.L.x` is the
-`then` / `else` side of the `if` on line `L` assigning `x`. After them comes one panel per
-core with its coverage.
+There is one panel per core with its coverage. Both cores cover two of the three lines: one
+uses lines 6 and 8, the other lines 5 and 8. Add `-v` to see the lines of each core.
 
 On the fan controller the two proofs give different branch coverage. The second proof
 also uses line 17 in the `else` branch of the outer `if`:
@@ -423,7 +429,8 @@ rewrites the program into this subset (see [`proofcov/normalize.py`](../proofcov
 
 * a single `main` function ending in `assert(...)` (`int main(int argc, char *argv[])` is
   accepted too; its arguments are ignored)
-* `int` variables, assignments, arithmetic (`/` and `%` round towards zero as in C)
+* `int` variables, assignments (`=`), arithmetic (`+`, `-`, `*`, `/`, `%`; `/` and `%` round
+  towards zero as in C), comparisons and `&&`, `||`, `!`
 * `if` / `else`, including empty branches
 * integers used as truth values (`if (a)`, `!a`, `a && b`) and truth values assigned to
   integers (`x = a && b;`)
@@ -433,11 +440,20 @@ rewrites the program into this subset (see [`proofcov/normalize.py`](../proofcov
 * functions **without parameters** (they are inlined)
 * `#define` (expanded with `gcc -E`; `#include` lines are ignored)
 
-**Not supported:** loops, pointers and functions with parameters. proofcov stops with exit
-code `2` and a message such as:
+**Not supported:** among others, loops, pointers, functions with parameters, types other
+than `int`, bitwise operators, `++` and `+=`, and truth values used as numbers
+(`x = (a > b) + 1;`). proofcov stops with exit code `2` and a message such as:
 
 ```
 Unsupported statement at line 3: While
+Unsupported operator << at line 3
+```
+
+A program that is not valid C gives a parse error. The position is where the parser got
+stuck, so a missing `;` is reported at the start of the next statement:
+
+```
+Parse error at line 3, column 5: before: assert
 ```
 
 The [`examples/`](../examples) folder contains many small programs to experiment with,
@@ -494,11 +510,12 @@ python tests/run_tests.py
 
 ```
 ...
-56/56 tests passed
+65/65 tests passed
 ```
 
 The test programs are in [`tests/programs/`](../tests/programs). Each one has its expected
-minimal unsat cores listed in `tests/run_tests.py`.
+minimal unsat cores listed in `tests/run_tests.py`, which also checks the coverage numbers,
+the warnings and the error messages for unsupported programs.
 
 ---
 

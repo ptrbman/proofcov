@@ -4,6 +4,9 @@ A (very) simple prototype for proof-based slicing. It only works for a narrow su
 - Python 3.13.7
 - Python packages (installed below): z3-solver 5.1.0, pycparser 3.0, rich 15.0.0, graphviz 0.21
 - Graphviz (only needed for `--graph`)
+- gcc (only needed for programs with `#define`)
+
+For a step-by-step introduction with examples and an explanation of the output, see the [tutorial](docs/TUTORIAL.md).
 
 ## Installation Instructions
 
@@ -41,7 +44,7 @@ python proofcov/proofcov.py examples/dilemma.c --all
 Line coverage: 6/8 (75.00%)
 Branch coverage: 2/4 (50.00%)
 ```
-If the assertion can fail, ProofCov prints `Test fail` and exits with code 1.
+If the assertion can fail, ProofCov prints `Test fail` and exits with code 1. If the program can not be analyzed (it is not valid C or uses an unsupported construct), ProofCov prints an error message and exits with code 2.
 
 Options:
 - `--line`: report line coverage
@@ -50,7 +53,7 @@ Options:
 - `--enumerate-cores`: find all minimal proofs (unsat cores) and report coverage for each of them, instead of a single one
 - `-v`, `--verbose`: show the program, GOTO code, SMT formula, unsat core and covered lines in detail
 - `--graph`: draw the control flow graph, colored by line coverage, as PNG files in `tmp/`
-- `--experiment`: only print the covered lines (`COVERED: ...`), used by the TCAS experiment
+- `--experiment`: print machine-readable output (`COVERED: ...` and more, see the tutorial), used by the TCAS experiment
 - `--track-undef`: use an alternative encoding which tracks undefined values
 
 ProofCov rewrites the program into the supported subset of C before the analysis (`proofcov/normalize.py`): `#define`, global variables, arrays of constant size, functions without parameters (inlined), `?:` and truth values assigned to integers (`x = a && b;` becomes an if-statement) are supported. Loops, pointers and functions with parameters are not.
