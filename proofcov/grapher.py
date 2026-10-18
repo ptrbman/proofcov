@@ -1,4 +1,3 @@
-from rich import print
 
 from pycparser import c_parser, c_ast
 
@@ -76,8 +75,6 @@ class Graph:
         dot = Digraph(comment="Control Flow Graph", format=filename.split('.')[-1])
         visited = set()
 
-        if marked_lines:
-            print("Marked lines:", marked_lines)
         def add_node(node):
             node_id = str(id(node))  # unique identifier
             if node_id not in visited:

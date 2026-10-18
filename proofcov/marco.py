@@ -66,8 +66,6 @@ def get_MUSes(formula):
 
 		# For every Z3 literal, convert it to its string name and place it in the list
 		mus_names = [lit.decl().name() for lit in lits]
-
-		print("MUS: ", mus_names)
 		muses.append(mus_names)
 
 	return muses
