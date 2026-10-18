@@ -59,7 +59,7 @@ Options:
 ProofCov rewrites the program into the supported subset of C before the analysis (`proofcov/normalize.py`): `#define`, global variables, arrays of constant size, functions without parameters (inlined), `?:` and truth values assigned to integers (`x = a && b;` becomes an if-statement) are supported. Loops, pointers and functions with parameters are not.
 
 ## The tcas experiment
-`tcas_revised` recreates the tcas experiment of the paper on the original tcas program and compares proofcov with gcov, see `tcas_revised/README.md`. The tcas source is licensed and not part of the repository.
+`tcas` contains the scripts of the tcas experiment of the paper, which compares proofcov with gcov, see `tcas/README.md`. The tcas source is licensed and not part of the repository.
 
 ## Running the tests
 ```console

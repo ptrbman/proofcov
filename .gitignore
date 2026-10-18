@@ -23,6 +23,5 @@ tcas/regression/universe_fixed.txt
 tcas/regression/tcas_sliced
 tcas/regression/tcas_original.c
 tcas/regression/tcas_sliced.c
-tcas_revised/out/
-tcas_revised/private/
-tcas_revised/__pycache__/
+# The revised tcas experiment is based on the tcas source, so it is not published either
+tcas_revised/

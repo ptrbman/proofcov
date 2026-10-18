@@ -523,7 +523,7 @@ the warnings and the error messages for unsupported programs.
 
 * **The paper:** <!-- TODO: FM 2026 citation (authors, title, link) --> *[FM 2026 paper,
   citation to be added]* gives the definitions of the proof-based coverage metrics.
-* **The TCAS experiment:** [`tcas_revised/README.md`](../tcas_revised/README.md) compares
-  proofcov with `gcov` on TCAS. The TCAS source is licensed and not part of this repository.
+* **The TCAS experiment:** [`tcas/README.md`](../tcas/README.md) compares proofcov with
+  `gcov` on TCAS. The TCAS source is licensed and not part of this repository.
 * **Bugs and questions:** please open an issue on
   [GitHub](https://github.com/ptrbman/proofcov/issues).
