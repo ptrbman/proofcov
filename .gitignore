@@ -5,6 +5,10 @@ a.out
 new_examples/
 tcas/tmp
 tmp
+# The tcas source is licensed and must never be committed
+examples/tcas.c
+examples/tcas_original.c
+tcas/regression/tcas.c
 tcas/regression/tcas_template.c
 tcas/regression/tcas_original.c
 tcas/tcas_template.c
