@@ -25,7 +25,10 @@
 # not branches in branch coverage, see Normalizer.generated_ifs.
 
 from pycparser import c_ast
-from pycparser.c_parser import Coord
+try:
+    from pycparser.c_parser import Coord  # pycparser 3
+except ImportError:
+    from pycparser.plyparser import Coord  # pycparser 2
 import weakref
 
 # Line number of generated statements which are not a line of the program (e.g. the zero
