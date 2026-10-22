@@ -207,16 +207,17 @@ class Assert(Line):
     def __init__(self, expr, src_line):
         self.expr = expr
         self.src_line = src_line
-        # Divisions of the program as (path condition, divisor), see CParser.handle_fundef
-        self.divisions = []
+        # Errors of the program as (path condition, error condition), see CParser.handle_fundef.
+        # An error condition of None means that the error always happens on the path.
+        self.errors = []
 
     def to_bmc(self, track_undef):
-        # The program fails if the assertion is false, or if an executed division
-        # (or modulo) has divisor 0, which is an error in C
+        # The program fails if the assertion is false, or if an error happens on the executed
+        # path (division or modulo by 0, or reading a variable before it is assigned)
         fails = ["(not " + self.expr.to_bmc(track_undef) + ")"]
-        for path, divisor in self.divisions:
-            zero = "(= " + divisor.to_bmc(track_undef) + " 0)"
-            fails.append("(and " + " ".join(c.to_bmc(track_undef) for c in path) + " " + zero + ")" if path else zero)
+        for path, error in self.errors:
+            conds = [c.to_bmc(track_undef) for c in path] + ([error.to_bmc(track_undef)] if error else [])
+            fails.append("true" if not conds else conds[0] if len(conds) == 1 else "(and " + " ".join(conds) + ")")
         return [fails[0] if len(fails) == 1 else "(or " + " ".join(fails) + ")"]
 
     def __str__(self):

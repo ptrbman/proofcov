@@ -87,8 +87,23 @@ class CParser():
             if v in true_writes:
                 ift = v + '.' + str(ssa_true[v]) # TODO: this should be handled by SSANames
                 
-            lines.append(Phi(ssa.inc(v), cond, ift, iff, src_line))
+            var = ssa.inc(v)
+            CParser.assigned[var] = CParser.select(cond, CParser.assigned[ift], CParser.assigned[iff])
+            lines.append(Phi(var, cond, ift, iff, src_line))
         return lines
+
+    # Whether a variable is assigned after (cond ? a_true : a_false), where each of a_true and
+    # a_false is True, False or a condition
+    def select(cond, a_true, a_false):
+        if a_true is a_false and isinstance(a_true, bool):
+            return a_true
+        parts = []
+        for c, a in ((cond, a_true), (Not(cond), a_false)):
+            if a is True:
+                parts.append(c)
+            elif a is not False:
+                parts.append(And(c, a))
+        return parts[0] if len(parts) == 1 else Or(parts[0], parts[1])
 
     # GOTO expressions which are truth values
     BOOLEAN = (Eq, Ne, Gt, Ge, Lt, Le, And, Or, Not)
@@ -139,15 +154,20 @@ class CParser():
             elif e.op == '||':
                 return Or(lhs, rhs)
             elif e.op == '%':
-                CParser.divisions.append((list(CParser.path), rhs))
+                CParser.errors.append((list(CParser.path), Eq(rhs, Constant('0'))))
                 return Mod(lhs, rhs)
             elif e.op == '/':
-                CParser.divisions.append((list(CParser.path), rhs))
+                CParser.errors.append((list(CParser.path), Eq(rhs, Constant('0'))))
                 return Div(lhs, rhs)
             else:
                raise TypeError(f"Unsupported binop: {e.op}")
         elif isinstance(e, c_ast.ID):
-            return Var(ssa.use(e.name))
+            name = ssa.use(e.name)
+            assigned = CParser.assigned[name]
+            if assigned is not True:
+                # Reading a variable which might not be assigned is an error
+                CParser.errors.append((list(CParser.path), None if assigned is False else Not(assigned)))
+            return Var(name)
         elif isinstance(e, c_ast.Constant):
             return Constant(e.value)
         elif isinstance(e, c_ast.UnaryOp):
@@ -230,17 +250,23 @@ class CParser():
             assert(dectype == 'int')
             if isinstance(s.init, c_ast.FuncCall):
                 assert(s.init.name.name == 'nondet_int')
-                return [Declaration(ssa.add(name), None, s.coord.line)], {name}
+                # An input: assigned, with any value
+                CParser.assigned[ssa.add(name)] = True
+                return [Declaration(ssa.use(name), None, s.coord.line)], {name}
             else:
                 if isinstance(s.init, c_ast.Constant):
-                    return [Declaration(ssa.add(name), s.init.value, s.coord.line)], {name}
+                    CParser.assigned[ssa.add(name)] = True
+                    return [Declaration(ssa.use(name), s.init.value, s.coord.line)], {name}
                 elif isinstance(s.init, c_ast.UnaryOp):
                     assert(s.init.op == '-')
                     assert(isinstance(s.init.expr, c_ast.Constant))
                     value = s.init.expr.value
-                    return [Declaration(ssa.add(name), '-' + value, s.coord.line)], {name}
+                    CParser.assigned[ssa.add(name)] = True
+                    return [Declaration(ssa.use(name), '-' + value, s.coord.line)], {name}
                 elif not s.init:
-                    return [Declaration(ssa.add(name), None, s.coord.line)], {name}
+                    # Not initialized, as in C
+                    CParser.assigned[ssa.add(name)] = False
+                    return [Declaration(ssa.use(name), None, s.coord.line)], {name}
                 else:
                     print(s.init)
                     raise Exception("Mathc on type ... ")
@@ -250,6 +276,7 @@ class CParser():
             rhs = CParser.as_number(CParser.handle_expr(s.rvalue, ssa), s.rvalue)
             assert(isinstance(s.lvalue, c_ast.ID))
             lhs = Var(ssa.inc(s.lvalue.name))
+            CParser.assigned[lhs.name] = True
 
             return [Assignment(lhs, rhs, s.coord.line, CParser.tags.get(s))], set([s.lvalue.name])
         elif isinstance(s, c_ast.For):
@@ -266,6 +293,7 @@ class CParser():
                 n, t = a.name, a.type.type.names[0]
                 assert(t == 'int')
                 args.append((ssa.add(n), t))
+                CParser.assigned[ssa.use(n)] = True
 
         stmts = []
         changed_vars = set()   
@@ -278,7 +306,7 @@ class CParser():
         asserts = [i for i, l in enumerate(stmts) if isinstance(l, Assert)]
         if len(asserts) != 1 or any(not isinstance(l, (Return, Skip)) for l in stmts[asserts[0] + 1:]):
             raise UnsupportedError("Unsupported: the program must end with a single assert")
-        stmts[asserts[0]].divisions = CParser.divisions
+        stmts[asserts[0]].errors = CParser.errors
 
         return Function(name, args, stmts), changed_vars
 
@@ -301,13 +329,16 @@ class CParser():
 
     # Conditions of the enclosing branches of the statement being translated
     path = []
-    # Divisions (and modulo) of the program as (path condition, divisor)
-    divisions = []
+    # Errors of the program as (path condition, error condition), see Assert
+    errors = []
+    # Whether each SSA variable is assigned: True, False or a condition
+    assigned = {}
 
     def ast_to_goto(ast, tags=None):
         CParser.tags = tags if tags is not None else {}
         CParser.path = []
-        CParser.divisions = []
+        CParser.errors = []
+        CParser.assigned = {}
         gotos = []
         ssas = []
         for a in ast:

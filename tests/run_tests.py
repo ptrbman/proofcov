@@ -52,6 +52,13 @@ EXPECTED = {
     # The right side of && is only evaluated if the left side is true, so the body of check()
     # (lines 4-6) is not executed and not covered
     "short_circuit.c": [{11, 12, 13, 16}],
+    # Reading a variable before it is assigned is an error, also if its value does not matter
+    # or it is only unassigned on the executed path (x == 1 is evaluated before c == 0)
+    "uninitialized.c": None,
+    "uninitialized_unused_value.c": None,
+    "uninitialized_on_path.c": None,
+    # x is assigned on the executed path, which the proof must show (line 4)
+    "assigned_on_path.c": [{4, 5, 6, 8}],
 }
 
 # Expected minimal unsat cores with --track-undef (enumerated, so all of them must be found)
