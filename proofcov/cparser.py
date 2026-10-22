@@ -139,8 +139,10 @@ class CParser():
             elif e.op == '||':
                 return Or(lhs, rhs)
             elif e.op == '%':
+                CParser.divisions.append((list(CParser.path), rhs))
                 return Mod(lhs, rhs)
             elif e.op == '/':
+                CParser.divisions.append((list(CParser.path), rhs))
                 return Div(lhs, rhs)
             else:
                raise TypeError(f"Unsupported binop: {e.op}")
@@ -181,7 +183,9 @@ class CParser():
            
             # We save the current SSA using state before branching
             ssa_current_before = ssa.copy_current()
+            CParser.path.append(Not(cond))
             iffalse, false_writes = CParser.handle_stmt(s.iffalse, ssa)
+            CParser.path.pop()
              
             # Now ssa might have increased both current and next
             # we need to restore uses before handling iftrue
@@ -190,7 +194,9 @@ class CParser():
             ssa_false_current = ssa.copy_current() 
             
             ssa.current = ssa_current_before.copy()
+            CParser.path.append(cond)
             iftrue, true_writes = CParser.handle_stmt(s.iftrue, ssa)
+            CParser.path.pop()
             ssa_true_current = ssa.copy_current()
         
             ssa.current = ssa_current_before.copy()
@@ -268,6 +274,12 @@ class CParser():
             changed_vars = changed_vars.union(changed)
             stmts = stmts + ret
 
+        # Assert-C programs end with a single assert (only a return may follow it)
+        asserts = [i for i, l in enumerate(stmts) if isinstance(l, Assert)]
+        if len(asserts) != 1 or any(not isinstance(l, (Return, Skip)) for l in stmts[asserts[0] + 1:]):
+            raise UnsupportedError("Unsupported: the program must end with a single assert")
+        stmts[asserts[0]].divisions = CParser.divisions
+
         return Function(name, args, stmts), changed_vars
 
     def handle_node(node, ssa):
@@ -287,8 +299,15 @@ class CParser():
     # Outcome tags ("true"/"false") of generated assignments, see normalize.py
     tags = {}
 
+    # Conditions of the enclosing branches of the statement being translated
+    path = []
+    # Divisions (and modulo) of the program as (path condition, divisor)
+    divisions = []
+
     def ast_to_goto(ast, tags=None):
         CParser.tags = tags if tags is not None else {}
+        CParser.path = []
+        CParser.divisions = []
         gotos = []
         ssas = []
         for a in ast:

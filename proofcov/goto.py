@@ -207,10 +207,17 @@ class Assert(Line):
     def __init__(self, expr, src_line):
         self.expr = expr
         self.src_line = src_line
+        # Divisions of the program as (path condition, divisor), see CParser.handle_fundef
+        self.divisions = []
 
     def to_bmc(self, track_undef):
-        # TODO: what about asserts?
-        return ["(not " + self.expr.to_bmc(track_undef) + ")"]
+        # The program fails if the assertion is false, or if an executed division
+        # (or modulo) has divisor 0, which is an error in C
+        fails = ["(not " + self.expr.to_bmc(track_undef) + ")"]
+        for path, divisor in self.divisions:
+            zero = "(= " + divisor.to_bmc(track_undef) + " 0)"
+            fails.append("(and " + " ".join(c.to_bmc(track_undef) for c in path) + " " + zero + ")" if path else zero)
+        return [fails[0] if len(fails) == 1 else "(or " + " ".join(fails) + ")"]
 
     def __str__(self):
         return "ASSERT(" + str(self.expr) + ")"
@@ -251,9 +258,14 @@ class Assignment(Line):
         self.tag = tag
 
     def to_bmc(self, track_undef):
-        # TODO: check  
         if track_undef:
-            return ["(and (= " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + ") (= " + self.lhs.to_bmc(track_undef) + ".undef 0))"]
+            # The assigned variable is only defined if all variables of the right-hand side are
+            lhs = self.lhs.to_bmc(track_undef)
+            defined = "(= " + lhs + ".undef 0)"
+            variables = self.rhs.get_variables()
+            if variables:
+                defined = "(=> (and " + " ".join(f"(= {v}.undef 0)" for v in variables) + ") " + defined + ")"
+            return ["(and (= " + lhs + " " + self.rhs.to_bmc(track_undef) + ") " + defined + ")"]
         else:
             return ["(and (= " + self.lhs.to_bmc(track_undef) + " " + self.rhs.to_bmc(track_undef) + "))"]
 

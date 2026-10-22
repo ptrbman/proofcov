@@ -17,12 +17,12 @@ class BMC():
     def handle_phi(l, track_undef):
         if track_undef:
             [true_decl, true_cond, a, false_decl, false_cond, b] = l.to_bmc(track_undef)
-            named_true_cond = f'(assert (! {true_cond} :named phi.if.{l.src_line}.{l.var}.cond)) ; if cond line {l.src_line}'
-            
+            # The definedness constraints are not named, so they are never part of a core
+            true_def = f'(assert {true_cond}) ; if definedness line {l.src_line}'
             named_a = f'(assert (! {a} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}'
-            named_false_cond = f'(assert (! {false_cond} :named phi.else.{l.src_line}.{l.var}.cond)) ; else cond line {l.src_line}'  
+            false_def = f'(assert {false_cond}) ; else definedness line {l.src_line}'
             named_b = f'(assert (! {b} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}'
-            return [true_decl, named_true_cond, named_a, false_decl, named_false_cond, named_b]
+            return [true_decl, true_def, named_a, false_decl, false_def, named_b]
         else:
             if_line = [f'(assert (! {l.to_bmc(track_undef)[0]} :named phi.if.{l.src_line}.{l.var})) ; if line {l.src_line}', f'(assert (! {l.to_bmc(track_undef)[1]} :named phi.else.{l.src_line}.{l.var})) ; else line {l.src_line}']
             return if_line

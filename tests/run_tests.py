@@ -46,6 +46,19 @@ EXPECTED = {
     "global_zero_init.c": [{6, 7}],
     # Two ifs on one line
     "two_ifs_one_line.c": [{2, 6, 7}],
+    # Division by zero is an error in C, so the program fails (unless the division is not executed)
+    "division_by_zero.c": None,
+    "guarded_division.c": [{4, 5, 6, 9}],
+    # The right side of && is only evaluated if the left side is true, so the body of check()
+    # (lines 4-6) is not executed and not covered
+    "short_circuit.c": [{11, 12, 13, 16}],
+}
+
+# Expected minimal unsat cores with --track-undef (enumerated, so all of them must be found)
+TRACK_UNDEF = {
+    "undef_both_branches.c": [{5, 6, 7, 8, 12}],
+    "undef_chain.c": [{3, 4, 5, 6, 7, 11}],
+    "short_circuit.c": [{11, 12, 13, 16}],
 }
 
 # Expected outcomes ("line:true/false") of the statements generated from truth values and ?:,
@@ -62,6 +75,9 @@ UNSUPPORTED = {
     "unsupported_operator.c": "Unsupported operator << at line 3",
     # The missing semicolon on line 2 is found at the next token
     "parse_error.c": "Parse error at line 3, column 5",
+    # A program ends with a single assert
+    "two_asserts.c": "the program must end with a single assert",
+    "assert_in_branch.c": "the program must end with a single assert",
 }
 
 # Expected coverage ("covered/total") reported by --line and --branch.
@@ -107,13 +123,13 @@ WARNINGS = {
 # With --track-undef every proof should lie on one execution trace (Theorem 3 of the paper), so lines
 # on different sides of an if can not all be in one core. Each program lists such lines.
 SAME_TRACE = {
+    # b = a only makes b defined if a is, so b == 1 can not be undefined while b has a value
     "undef_both_branches.c": {8, 10},
+    "undef_chain.c": {7, 9},
 }
 
-# Known failures, reported as XFAIL and not counted as failed. The --track-undef encoding breaks
-# Theorem 3: b = a makes b defined even when a is not, so the condition b == 1 counts as defined
-# while its value is unconstrained, and one core uses both x = 1 (lines 8 and 10).
-KNOWN_FAILURES = {"undef_both_branches.c"}
+# Known failures, reported as XFAIL and not counted as failed
+KNOWN_FAILURES = set()
 
 
 def run_proofcov(program, extra_args, experiment=True):
@@ -249,6 +265,9 @@ def main():
         for extra_args in ([], ["--enumerate-cores"]):
             if not check(program, expected, extra_args):
                 failures += 1
+    for program, expected in TRACK_UNDEF.items():
+        if not check(program, expected, ["--track-undef", "--enumerate-cores"]):
+            failures += 1
     for program, expected in LINE_COVERAGE.items():
         if not check_coverage(program, "Line", expected):
             failures += 1
@@ -270,7 +289,7 @@ def main():
         failures += status == "fail"
         xfails += status == "xfail"
 
-    total = (2 * len(EXPECTED) + len(LINE_COVERAGE) + len(BRANCH_COVERAGE) + len(OUTCOMES)
+    total = (2 * len(EXPECTED) + len(TRACK_UNDEF) + len(LINE_COVERAGE) + len(BRANCH_COVERAGE) + len(OUTCOMES)
              + len(WARNINGS) + len(UNSUPPORTED) + len(SAME_TRACE))
     print(f"\n{total - failures - xfails}/{total - xfails} tests passed" + (f", {xfails} known failure (XFAIL)" if xfails else ""))
     sys.exit(1 if failures else 0)
